@@ -12,24 +12,15 @@
         android:layout_height="wrap_content"
         app:cardCornerRadius="15dp"
         app:cardElevation="4dp"
-        android:layout_marginBottom="16dp">
-        
-        <LinearLayout
+        android:layout_marginBottom="12dp">
+        <TextView
+            android:id="@+id/dashboardView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
             android:padding="16dp"
-            android:background="#FFFFFF">
-            
-            <TextView
-                android:id="@+id/dashboardView"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Status: Ready\nVisits: 0 | Clicks: 0"
-                android:textColor="#2C3E50"
-                android:textSize="14sp"
-                android:fontFamily="sans-serif-medium" />
-        </LinearLayout>
+            android:text="Status: Ready\nVisits: 0 | Clicks: 0"
+            android:textColor="#2C3E50"
+            android:textSize="14sp" />
     </androidx.cardview.widget.CardView>
 
     <EditText
@@ -37,9 +28,27 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:background="@drawable/edit_text_bg"
-        android:hint="Enter Target URL (https://...)"
+        android:hint="Target URL (https://...)"
         android:padding="12dp"
-        android:layout_marginBottom="12dp" />
+        android:layout_marginBottom="8dp" />
+
+    <EditText
+        android:id="@+id/manualProxyInput"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:background="@drawable/edit_text_bg"
+        android:hint="Paste Proxies (IP:Port) - One per line"
+        android:inputType="textMultiLine"
+        android:gravity="top"
+        android:padding="10dp"
+        android:layout_marginBottom="8dp" />
+
+    <Switch
+        android:id="@+id/proxyModeSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Manual Proxy Mode"
+        android:layout_marginBottom="10dp" />
 
     <Button
         android:id="@+id/controlButton"
@@ -49,12 +58,11 @@
         android:backgroundTint="#27AE60"
         android:textColor="#FFFFFF"
         app:cornerRadius="10dp"
-        android:layout_marginBottom="12dp"/>
+        android:layout_marginBottom="10dp"/>
 
     <WebView
         android:id="@+id/myBrowser"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#FFFFFF" />
+        android:layout_height="match_parent" />
 
 </LinearLayout>
