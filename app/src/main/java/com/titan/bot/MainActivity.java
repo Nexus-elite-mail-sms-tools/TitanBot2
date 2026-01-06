@@ -39,22 +39,19 @@ public class MainActivity extends Activity {
     private Switch proxyModeSwitch;
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    // رفع عدد المسارات للفحص السريع (Turbo Threads)
-    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(8); 
-    private ExecutorService validatorExecutor = Executors.newFixedThreadPool(25); 
+    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(4); // تقليل المسارات لتناسب 19Mbps
+    private ExecutorService validatorExecutor = Executors.newFixedThreadPool(15); 
     
     private Random random = new Random();
-    private int visitCounter = 0;
-    private int clickCounter = 0;
+    private int visitCounter = 0, clickCounter = 0;
     private boolean isBotRunning = false;
-    private String currentProxy = "Direct";
-    private String currentCountry = "Auto-Harvesting...";
+    private String currentProxy = "Direct", currentCountry = "Safe Loading...";
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
 
     private String[] DEVICE_PROFILES = {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) Chrome/125.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Version/17.5 Mobile/15E148 Safari/604.1"
     };
 
     @Override
@@ -71,10 +68,7 @@ public class MainActivity extends Activity {
 
         createNotificationChannel(); 
         initSettings();
-        
-        // --- ميزة الجلب التلقائي الفوري عند فتح التطبيق ---
         startUltraScraper(); 
-        updateDashboard("⚡ Harvest Engine: ONLINE");
     }
 
     private void initSettings() {
@@ -82,45 +76,44 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        s.setDatabaseEnabled(true);
         
         myBrowser.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // ميزة GoLogin Stealth
+                    // ميزة 1: قتل ثغرة WebRTC لمنع كشف الـ IP الحقيقي
                     myBrowser.loadUrl("javascript:(function(){" +
+                        "var pc = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;" +
+                        "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
                         "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
                         "Object.defineProperty(navigator,'deviceMemory',{get:()=>8});" +
                         "})()");
                     
-                    // ميزة النقر المتذبذب (3%-5%)
+                    // ميزة 2: النقر المتذبذب (3%-5%) مع محاكاة قراءة بشرية
                     if (random.nextInt(100) < (3 + random.nextInt(3))) {
                         mainHandler.postDelayed(() -> {
                             myBrowser.loadUrl("javascript:(function(){" +
-                                "var links = document.getElementsByTagName('a');" +
-                                "if(links.length > 0) { links[Math.floor(Math.random()*links.length)].click(); }" +
+                                "var el = document.querySelectorAll('a, button, iframe');" +
+                                "if(el.length > 0) el[Math.floor(Math.random()*el.length)].click();" +
                                 "})()");
                             clickCounter++;
-                            updateDashboard("");
-                        }, 8000 + random.nextInt(5000));
+                            updateDashboard("🎯 Pro Click Applied");
+                        }, 12000 + random.nextInt(6000));
                     }
-                    myBrowser.loadUrl("javascript:window.scrollBy({top: 700, behavior: 'smooth'});");
+                    myBrowser.loadUrl("javascript:window.scrollBy({top: 400, behavior: 'smooth'});");
                 }
             }
         });
         controlButton.setOnClickListener(v -> toggleBot());
     }
 
-    // --- محرك الجلب الخارق (لا يتوقف ولا يحتاج لضغط زر) ---
     private void startUltraScraper() {
         String[] sources = {
             "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
             "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http",
-            "https://www.proxy-list.download/api/v1/get?type=http",
-            "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt",
-            "https://raw.githubusercontent.com/shiftytr/proxy-list/master/proxy.txt"
+            "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt"
         };
-
         scraperExecutor.execute(() -> {
             while (true) {
                 for (String src : sources) {
@@ -128,28 +121,34 @@ public class MainActivity extends Activity {
                         URL url = new URL(src);
                         BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
                         String l;
-                        while ((l = r.readLine()) != null && VERIFIED_PROXIES.size() < 2000) { // رفع السعة لزيارات ضخمة
-                            if (l.contains(":")) validateProxy(l.trim());
+                        while ((l = r.readLine()) != null && VERIFIED_PROXIES.size() < 2000) {
+                            if (l.contains(":")) validateAndFilterProxy(l.trim());
                         }
                     } catch (Exception e) {}
                 }
-                try { Thread.sleep(60000); } catch (Exception e) {} // تحديث كل دقيقة
+                try { Thread.sleep(90000); } catch (Exception e) {}
             }
         });
     }
 
-    private void validateProxy(String proxyAddr) {
+    private void validateAndFilterProxy(String addr) {
         validatorExecutor.execute(() -> {
             try {
-                String[] p = proxyAddr.split(":");
-                HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(
+                String[] p = addr.split(":");
+                HttpURLConnection c = (HttpURLConnection) new URL("http://ip-api.com/json/" + p[0]).openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                c.setConnectTimeout(2500); // سرعة فحص عالية
+                c.setConnectTimeout(6000); // زيادة المهلة لتجنب Timed Out
                 if (c.getResponseCode() == 200) {
-                    if (!VERIFIED_PROXIES.contains(proxyAddr)) {
-                        VERIFIED_PROXIES.add(proxyAddr);
-                        updateDashboard("");
+                    JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(c.getInputStream())).readLine());
+                    String country = j.optString("countryCode", "");
+                    boolean isProxy = j.optBoolean("proxy", false); // ميزة الفلترة ضد الكشف
+                    
+                    if (!isProxy && (country.matches("US|CA|GB|DE|FR") || random.nextInt(10) < 3)) {
+                        if (!VERIFIED_PROXIES.contains(addr)) {
+                            VERIFIED_PROXIES.add(addr);
+                            updateDashboard("");
+                        }
                     }
                 }
             } catch (Exception e) {}
@@ -168,11 +167,9 @@ public class MainActivity extends Activity {
         }
 
         applyProxySettings(currentProxy);
-        fetchGeoInfo(currentProxy); // كاشف الدولة
+        fetchGeoInfo(currentProxy);
 
-        String ua = DEVICE_PROFILES[random.nextInt(DEVICE_PROFILES.length)];
-        myBrowser.getSettings().setUserAgentString(ua);
-
+        myBrowser.getSettings().setUserAgentString(DEVICE_PROFILES[random.nextInt(DEVICE_PROFILES.length)]);
         String url = linkInput.getText().toString().trim();
         if (url.isEmpty()) return;
 
@@ -180,31 +177,19 @@ public class MainActivity extends Activity {
         updateDashboard("");
         
         Map<String, String> headers = new HashMap<>();
-        headers.put("Referer", "https://www.google.com/"); // تزييف المصدر
+        headers.put("Referer", "https://www.google.com/");
         myBrowser.loadUrl(url, headers);
 
-        // سرعة توربينية متذبذبة (30-60 ثانية)
-        mainHandler.postDelayed(this::startNewSession, 30000 + random.nextInt(30000));
-    }
-
-    private void updateDashboard(String msg) {
-        mainHandler.post(() -> {
-            String status = isBotRunning ? "🛡️ Stealth: TITAN-ULTRA PRO" : "⚡ Engine: Harvesting...";
-            dashboardView.setText(status + 
-                "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
-                "\n🌍 Geo: " + currentCountry + 
-                "\n🌐 Proxy: " + currentProxy + 
-                "\n📦 Global Pool: " + VERIFIED_PROXIES.size());
-        });
+        // توقيت متذبذب طويل (45-80 ثانية) لضمان تحميل الإعلانات بالكامل
+        mainHandler.postDelayed(this::startNewSession, 45000 + random.nextInt(35000));
     }
 
     private void fetchGeoInfo(String p) {
         if (p.equals("Direct")) return;
         scraperExecutor.execute(() -> {
             try {
-                String ip = p.split(":")[0];
-                JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(new URL("http://ip-api.com/json/"+ip).openStream())).readLine());
-                currentCountry = j.optString("country", "Global") + " 🌍";
+                JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(new URL("http://ip-api.com/json/"+p.split(":")[0]).openStream())).readLine());
+                currentCountry = j.optString("country", "Analyzing") + " 🌍";
                 updateDashboard("");
             } catch (Exception e) {}
         });
@@ -216,20 +201,24 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void updateDashboard(String msg) {
+        mainHandler.post(() -> {
+            String status = isBotRunning ? "🛡️ Stealth: High-Security Mode" : "⚡ Engine: Ready";
+            dashboardView.setText(status + "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
+                "\n🌍 Geo: " + currentCountry + "\n🌐 Proxy: " + currentProxy + "\n📦 Quality Pool: " + VERIFIED_PROXIES.size());
+        });
+    }
+
     private void toggleBot() {
         isBotRunning = !isBotRunning;
-        controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN BOT");
-        if (isBotRunning) startNewSession();
-        else {
-            mainHandler.removeCallbacksAndMessages(null);
-            stopNotification();
-        }
+        controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN PRO");
+        if (isBotRunning) { startNewSession(); showNotification("TitanBot Stealth Active..."); }
+        else { mainHandler.removeCallbacksAndMessages(null); stopNotification(); }
     }
 
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-            m.createNotificationChannel(new NotificationChannel("BOT_CHANNEL", "Titan Bot Service", NotificationManager.IMPORTANCE_LOW));
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).createNotificationChannel(new NotificationChannel("BOT_CHANNEL", "Titan Bot Service", NotificationManager.IMPORTANCE_LOW));
         }
     }
 
@@ -241,4 +230,5 @@ public class MainActivity extends Activity {
     }
 
     private void stopNotification() { ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1); }
-            }
+                                }
+            
