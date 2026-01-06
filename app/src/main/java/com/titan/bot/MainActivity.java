@@ -39,17 +39,18 @@ public class MainActivity extends Activity {
     private Switch proxyModeSwitch;
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    private ExecutorService masterExecutor = Executors.newFixedThreadPool(3);
-    private ExecutorService helperExecutor = Executors.newSingleThreadExecutor();
+    // رفع عدد المسارات للفحص السريع (Turbo Threads)
+    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(8); 
+    private ExecutorService validatorExecutor = Executors.newFixedThreadPool(25); 
+    
     private Random random = new Random();
     private int visitCounter = 0;
     private int clickCounter = 0;
     private boolean isBotRunning = false;
     private String currentProxy = "Direct";
-    private String currentCountry = "Analyzing...";
+    private String currentCountry = "Auto-Harvesting...";
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
 
-    // ميزة: محاكاة بصمة الجهاز المتغيرة (Hardware Spoofing)
     private String[] DEVICE_PROFILES = {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
@@ -70,8 +71,10 @@ public class MainActivity extends Activity {
 
         createNotificationChannel(); 
         initSettings();
-        startMasterScraper(); 
-        startHelperBot();
+        
+        // --- ميزة الجلب التلقائي الفوري عند فتح التطبيق ---
+        startUltraScraper(); 
+        updateDashboard("⚡ Harvest Engine: ONLINE");
     }
 
     private void initSettings() {
@@ -84,37 +87,73 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // ميزة GoLogin Stealth: إخفاء حقيقة أن المتصفح هو "بُوت"
+                    // ميزة GoLogin Stealth
                     myBrowser.loadUrl("javascript:(function(){" +
                         "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
                         "Object.defineProperty(navigator,'deviceMemory',{get:()=>8});" +
-                        "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>8});" +
                         "})()");
                     
-                    // ميزة النقر المتذبذب (3% - 5% فقط) بمستوى بشري احترافي
-                    int clickChance = 3 + random.nextInt(3); // يولد نسبة بين 3 و 5 عشوائياً
-                    if (random.nextInt(100) < clickChance) {
+                    // ميزة النقر المتذبذب (3%-5%)
+                    if (random.nextInt(100) < (3 + random.nextInt(3))) {
                         mainHandler.postDelayed(() -> {
-                            // البحث عن الروابط أو الإعلانات والنقر عليها بعشوائية
                             myBrowser.loadUrl("javascript:(function(){" +
                                 "var links = document.getElementsByTagName('a');" +
-                                "if(links.length > 0) { " +
-                                "   var target = links[Math.floor(Math.random()*links.length)];" +
-                                "   target.style.border = '1px solid red';" + // وهمي للمحاكاة
-                                "   target.click(); " +
-                                "}" +
+                                "if(links.length > 0) { links[Math.floor(Math.random()*links.length)].click(); }" +
                                 "})()");
                             clickCounter++;
-                            updateDashboard("🎯 Human Click Sim: " + clickChance + "%");
-                        }, 7000 + random.nextInt(8000)); // انتظار طويل قبل النقر لمحاكاة القراءة
+                            updateDashboard("");
+                        }, 8000 + random.nextInt(5000));
                     }
-                    
-                    // تمرير الصفحة لأسفل لمحاكاة التصفح الحقيقي
-                    myBrowser.loadUrl("javascript:window.scrollBy({top: 800, behavior: 'smooth'});");
+                    myBrowser.loadUrl("javascript:window.scrollBy({top: 700, behavior: 'smooth'});");
                 }
             }
         });
         controlButton.setOnClickListener(v -> toggleBot());
+    }
+
+    // --- محرك الجلب الخارق (لا يتوقف ولا يحتاج لضغط زر) ---
+    private void startUltraScraper() {
+        String[] sources = {
+            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http",
+            "https://www.proxy-list.download/api/v1/get?type=http",
+            "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt",
+            "https://raw.githubusercontent.com/shiftytr/proxy-list/master/proxy.txt"
+        };
+
+        scraperExecutor.execute(() -> {
+            while (true) {
+                for (String src : sources) {
+                    try {
+                        URL url = new URL(src);
+                        BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
+                        String l;
+                        while ((l = r.readLine()) != null && VERIFIED_PROXIES.size() < 2000) { // رفع السعة لزيارات ضخمة
+                            if (l.contains(":")) validateProxy(l.trim());
+                        }
+                    } catch (Exception e) {}
+                }
+                try { Thread.sleep(60000); } catch (Exception e) {} // تحديث كل دقيقة
+            }
+        });
+    }
+
+    private void validateProxy(String proxyAddr) {
+        validatorExecutor.execute(() -> {
+            try {
+                String[] p = proxyAddr.split(":");
+                HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(
+                    new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
+                );
+                c.setConnectTimeout(2500); // سرعة فحص عالية
+                if (c.getResponseCode() == 200) {
+                    if (!VERIFIED_PROXIES.contains(proxyAddr)) {
+                        VERIFIED_PROXIES.add(proxyAddr);
+                        updateDashboard("");
+                    }
+                }
+            } catch (Exception e) {}
+        });
     }
 
     private void startNewSession() {
@@ -129,47 +168,77 @@ public class MainActivity extends Activity {
         }
 
         applyProxySettings(currentProxy);
-        fetchGeoInfo(currentProxy);
+        fetchGeoInfo(currentProxy); // كاشف الدولة
 
         String ua = DEVICE_PROFILES[random.nextInt(DEVICE_PROFILES.length)];
         myBrowser.getSettings().setUserAgentString(ua);
 
         String url = linkInput.getText().toString().trim();
         if (url.isEmpty()) return;
-        if (!url.startsWith("http")) url = "https://" + url;
 
         visitCounter++;
         updateDashboard("");
         
-        // ميزة تزييف المصدر (Referer Spoofing) لزيادة الموثوقية
         Map<String, String> headers = new HashMap<>();
-        String[] referers = {"https://www.google.com/", "https://www.facebook.com/", "https://t.co/", "https://www.bing.com/"};
-        headers.put("Referer", referers[random.nextInt(referers.length)]);
+        headers.put("Referer", "https://www.google.com/"); // تزييف المصدر
         myBrowser.loadUrl(url, headers);
 
-        // توقيت عشوائي بين الزيارات (35 - 70 ثانية)
-        mainHandler.postDelayed(this::startNewSession, 35000 + random.nextInt(35000));
+        // سرعة توربينية متذبذبة (30-60 ثانية)
+        mainHandler.postDelayed(this::startNewSession, 30000 + random.nextInt(30000));
     }
 
     private void updateDashboard(String msg) {
         mainHandler.post(() -> {
-            String status = msg.isEmpty() ? "🛡️ Stealth: TITAN-ULTRA SAFE" : msg;
+            String status = isBotRunning ? "🛡️ Stealth: TITAN-ULTRA PRO" : "⚡ Engine: Harvesting...";
             dashboardView.setText(status + 
                 "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
                 "\n🌍 Geo: " + currentCountry + 
                 "\n🌐 Proxy: " + currentProxy + 
-                "\n📦 Pool: " + VERIFIED_PROXIES.size());
+                "\n📦 Global Pool: " + VERIFIED_PROXIES.size());
         });
     }
 
-    // --- الدوال الأساسية للبقاء في الخلفية وجلب البروكسي ---
-    private void startMasterScraper() { masterExecutor.execute(() -> { while(true) { try { URL url = new URL("https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"); BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream())); String l; while((l=r.readLine())!=null && VERIFIED_PROXIES.size()<150) checkProxy(l.trim(), masterExecutor); Thread.sleep(180000); } catch(Exception e){} } }); }
-    private void startHelperBot() { helperExecutor.execute(() -> { while(true) { try { URL url = new URL("https://api.proxyscrape.com/v2/?request=getproxies&protocol=http"); BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream())); String l; while((l=r.readLine())!=null && VERIFIED_PROXIES.size()<250) checkProxy(l.trim(), helperExecutor); Thread.sleep(350000); } catch(Exception e){} } }); }
-    private void checkProxy(String a, ExecutorService e) { e.execute(() -> { try { String[] p = a.split(":"); HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))); c.setConnectTimeout(4000); if(c.getResponseCode()==200) { if(!VERIFIED_PROXIES.contains(a)) VERIFIED_PROXIES.add(a); updateDashboard(""); } } catch(Exception e1){} }); }
-    private void fetchGeoInfo(String p) { if(p.equals("Direct")) return; masterExecutor.execute(() -> { try { String ip = p.split(":")[0]; JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(new URL("http://ip-api.com/json/"+ip).openStream())).readLine()); currentCountry = j.optString("country", "Global") + " 🌍"; updateDashboard(""); } catch(Exception e){} }); }
-    private void applyProxySettings(String p) { if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE) && !p.equals("Direct")) { ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder().addProxyRule(p).build(), r -> {}, () -> {}); } }
-    private void toggleBot() { isBotRunning = !isBotRunning; controlButton.setText(isBotRunning ? "STOP TITAN (ULTRA SAFE)" : "START TITAN"); if(isBotRunning) { startNewSession(); showNotification("TitanBot Ultra يعمل بأمان في الخلفية..."); } else { mainHandler.removeCallbacksAndMessages(null); stopNotification(); } }
-    private void createNotificationChannel() { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE); m.createNotificationChannel(new NotificationChannel("BOT_CHANNEL", "Titan Bot Service", NotificationManager.IMPORTANCE_LOW)); } }
-    private void showNotification(String t) { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) { Notification.Builder b = new Notification.Builder(this, "BOT_CHANNEL").setContentTitle("TitanBot Ultra PRO").setContentText(t).setSmallIcon(android.R.drawable.ic_dialog_info).setOngoing(true); ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, b.build()); } }
+    private void fetchGeoInfo(String p) {
+        if (p.equals("Direct")) return;
+        scraperExecutor.execute(() -> {
+            try {
+                String ip = p.split(":")[0];
+                JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(new URL("http://ip-api.com/json/"+ip).openStream())).readLine());
+                currentCountry = j.optString("country", "Global") + " 🌍";
+                updateDashboard("");
+            } catch (Exception e) {}
+        });
+    }
+
+    private void applyProxySettings(String p) {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE) && !p.equals("Direct")) {
+            ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder().addProxyRule(p).build(), r -> {}, () -> {});
+        }
+    }
+
+    private void toggleBot() {
+        isBotRunning = !isBotRunning;
+        controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN BOT");
+        if (isBotRunning) startNewSession();
+        else {
+            mainHandler.removeCallbacksAndMessages(null);
+            stopNotification();
+        }
+    }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            m.createNotificationChannel(new NotificationChannel("BOT_CHANNEL", "Titan Bot Service", NotificationManager.IMPORTANCE_LOW));
+        }
+    }
+
+    private void showNotification(String t) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder b = new Notification.Builder(this, "BOT_CHANNEL").setContentTitle("TitanBot Ultra PRO").setContentText(t).setSmallIcon(android.R.drawable.ic_dialog_info).setOngoing(true);
+            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).notify(1, b.build());
+        }
+    }
+
     private void stopNotification() { ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1); }
             }
