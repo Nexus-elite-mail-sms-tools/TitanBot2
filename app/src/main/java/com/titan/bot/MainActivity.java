@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
@@ -37,39 +39,25 @@ public class MainActivity extends Activity {
     private String currentProxy = "Direct";
     private String currentCountry = "Analyzing...";
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
+    
+    // إدارة المهام لمنع انهيار التطبيق (Stability Fix)
+    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    // ميزة 1: محاكاة كافة أنواع الأجهزة (Omni-Device Pool)
     private String[] DEVICE_PROFILES = {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36", // PC
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36", // Mac
-        "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36", // Mobile
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1", // iOS
-        "Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1", // Tablet
-        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:126.0) Gecko/20100101 Firefox/126.0" // Linux PC
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
     };
 
-    // ميزة 2: تزييف مصدر الزيارة (Referrer)
     private String[] REFERRER_SOURCES = {
         "https://www.youtube.com/", "https://www.instagram.com/",
-        "https://www.tiktok.com/", "https://www.facebook.com/",
-        "https://t.co/", "https://www.google.com/"
-    };
-
-    // ميزة 3: 20 مصدراً عالمياً للبروكسي (Multi-Source Harvesting)
-    private String[] PROXY_SOURCES = {
-        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
-        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
-        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http",
-        "https://www.proxy-list.download/api/v1/get?type=http",
-        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-        "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt"
-        // ... (سيتم جلب الباقي تلقائياً من المحرك المدمج)
+        "https://www.tiktok.com/", "https://www.facebook.com/", "https://www.google.com/"
     };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main); // ميزة 4: الوضع المظلم (Dark Mode)
+        setContentView(R.layout.activity_main);
         
         dashboardView = findViewById(R.id.dashboardView);
         linkInput = findViewById(R.id.linkInput);
@@ -79,7 +67,7 @@ public class MainActivity extends Activity {
         myBrowser = findViewById(R.id.myBrowser);
 
         setupStealthEngine();
-        startGlobalHarvesting();
+        startOptimizedHarvesting(); // نظام جلب محسن لا يستهلك الرام
     }
 
     private void setupStealthEngine() {
@@ -93,7 +81,7 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    injectOmniStealth(); // ميزة 5: حقن بصمة متطورة (Hardware Spoofing)
+                    injectOmniStealth();
                     myBrowser.loadUrl("javascript:window.scrollBy({top: 500, behavior: 'smooth'});");
                 }
             }
@@ -106,13 +94,10 @@ public class MainActivity extends Activity {
     }
 
     private void injectOmniStealth() {
-        // تزييف العتاد عشوائياً لكل جهاز
-        int ram = (random.nextBoolean() ? 8 : 16);
-        int cpu = (random.nextBoolean() ? 4 : 8);
         String script = "javascript:(function() { " +
                 "Object.defineProperty(navigator, 'webdriver', {get: () => false}); " +
-                "Object.defineProperty(navigator, 'deviceMemory', {get: () => " + ram + "}); " +
-                "Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => " + cpu + "}); " +
+                "Object.defineProperty(navigator, 'deviceMemory', {get: () => 8}); " +
+                "Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8}); " +
                 "})()";
         myBrowser.loadUrl(script);
     }
@@ -121,7 +106,6 @@ public class MainActivity extends Activity {
         if (!isBotRunning) return;
         CookieManager.getInstance().removeAllCookies(null);
 
-        // ميزة 6: التحكم المزدوج (Manual/Auto)
         if (proxyModeSwitch.isChecked() && !manualProxyInput.getText().toString().isEmpty()) {
             String[] list = manualProxyInput.getText().toString().split("\n");
             currentProxy = list[random.nextInt(list.length)].trim();
@@ -129,10 +113,9 @@ public class MainActivity extends Activity {
             currentProxy = VERIFIED_PROXIES.remove(0);
         }
         
-        fetchCountryInfo(currentProxy); // ميزة 7: كاشف الدولة (Geo-Detection)
         applyProxy(currentProxy);
+        fetchCountryInfo(currentProxy);
 
-        // ميزة المحاكاة الشاملة: اختيار بروفايل جهاز جديد
         String deviceUA = DEVICE_PROFILES[random.nextInt(DEVICE_PROFILES.length)];
         myBrowser.getSettings().setUserAgentString(deviceUA);
 
@@ -140,19 +123,16 @@ public class MainActivity extends Activity {
         if (url.isEmpty() || url.contains("emulated")) return;
         if (!url.startsWith("http")) url = "https://" + url;
 
-        // ميزة 8: تزييف المصدر المدمج
         Map<String, String> headers = new HashMap<>();
         String ref = REFERRER_SOURCES[random.nextInt(REFERRER_SOURCES.length)];
         headers.put("Referer", ref);
 
         visitCounter++;
-        updateUI("🎭 Device: " + (deviceUA.contains("Windows") ? "PC" : "Mobile") + " | Ref: " + ref.replace("https://www.", ""));
+        updateUI("🎭 Device: " + (deviceUA.contains("Windows") ? "PC" : "Mobile"));
         myBrowser.loadUrl(url, headers);
 
-        // ميزة 9: السرعة المتذبذبة التوربينية (30-60 ثانية)
-        int delay = 30000 + random.nextInt(30000); 
-        handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(this::startNewSession, delay);
+        // توقيت متذبذب (30-60 ثانية) محفوظ
+        handler.postDelayed(this::startNewSession, 30000 + random.nextInt(30000));
     }
 
     private void applyProxy(String p) {
@@ -162,25 +142,23 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void startGlobalHarvesting() {
-        Executors.newFixedThreadPool(10).execute(() -> {
-            while (true) {
-                for (String src : PROXY_SOURCES) {
-                    try {
-                        BufferedReader r = new BufferedReader(new InputStreamReader(new URL(src).openStream()));
-                        String l;
-                        while ((l = r.readLine()) != null) {
-                            if (l.contains(":") && VERIFIED_PROXIES.size() < 800) validate(l.trim());
-                        }
-                    } catch (Exception e) {}
+    private void startOptimizedHarvesting() {
+        // فحص هادئ كل 5 دقائق لمنع توقف التطبيق (Stability Fix)
+        scheduler.scheduleWithFixedDelay(() -> {
+            try {
+                URL url = new URL("https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt");
+                BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
+                String l;
+                while ((l = r.readLine()) != null) {
+                    if (l.contains(":") && VERIFIED_PROXIES.size() < 100) validate(l.trim());
                 }
-                try { Thread.sleep(300000); } catch (Exception e) {}
-            }
-        });
+            } catch (Exception e) {}
+        }, 0, 5, TimeUnit.MINUTES);
     }
 
     private void validate(String a) {
-        Executors.newFixedThreadPool(40).execute(() -> {
+        // استخدام مسارات فحص محدودة (10 بدلاً من 40) لمنع استهلاك المعالج
+        Executors.newFixedThreadPool(10).execute(() -> {
             try {
                 String[] p = a.split(":");
                 HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1]))));
@@ -219,7 +197,7 @@ public class MainActivity extends Activity {
 
     private void updateUI(String msg) {
         runOnUiThread(() -> {
-            String status = msg.isEmpty() ? "⚡ Mode: OMNI-STEALTH TURBO" : msg;
+            String status = msg.isEmpty() ? "⚡ Mode: OMNI-STEALTH" : msg;
             dashboardView.setText(status + 
                 "\n📊 Total Visits: " + visitCounter + 
                 "\n🌍 Origin: " + currentCountry + 
@@ -227,4 +205,4 @@ public class MainActivity extends Activity {
                 "\n📦 Global Pool: " + VERIFIED_PROXIES.size());
         });
     }
-                                                }
+            }
