@@ -17,6 +17,8 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -28,19 +30,24 @@ public class MainActivity extends Activity {
     private EditText linkInput, manualProxyInput;
     private TextView dashboardView;
     private Switch proxyModeSwitch;
-    
     private Handler handler = new Handler();
     private Random random = new Random();
-    
-    private int visitCounter = 0;
-    private int clickCounter = 0;
+    private int visitCounter = 0, clickCounter = 0;
     private boolean isBotRunning = false;
     private String currentProxy = "Direct";
-    private String currentCountry = "Searching...";
-    
+    private String currentCountry = "Analyzing...";
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
 
-    // ميزة 1: المصادر المتعددة (عشرة مصادر عالمية)
+    // ميزة مصادر الزيارات (Referrer Sources) - محمية ومدمجة
+    private String[] REFERRERS = {
+        "https://www.youtube.com/",
+        "https://www.instagram.com/",
+        "https://www.tiktok.com/",
+        "https://www.facebook.com/",
+        "https://t.co/", // اختصار تويتر
+        "https://www.google.com/search?q="
+    };
+
     private String[] PROXY_SOURCES = {
         "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
         "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
@@ -48,17 +55,15 @@ public class MainActivity extends Activity {
         "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
         "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
         "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
-        "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
-        "https://alexa.lr2b.com/proxylist.txt",
-        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all",
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000",
         "https://www.proxy-list.download/api/v1/get?type=http"
     };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main); // الميزة 2: الحفاظ على الوضع المظلم
-
+        setContentView(R.layout.activity_main);
+        
         dashboardView = findViewById(R.id.dashboardView);
         linkInput = findViewById(R.id.linkInput);
         manualProxyInput = findViewById(R.id.manualProxyInput);
@@ -66,45 +71,52 @@ public class MainActivity extends Activity {
         controlButton = findViewById(R.id.controlButton);
         myBrowser = findViewById(R.id.myBrowser);
 
-        setupAdvancedEngine();
-        startProxyHarvestingSystem(); // الميزة 3: بوت الفحص التلقائي
+        setupUltraStealthEngine();
+        startGlobalHarvesting();
     }
 
-    private void setupAdvancedEngine() {
+    private void setupUltraStealthEngine() {
         WebSettings s = myBrowser.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
-        // الميزة 4: بصمة متصفح Gologin Stealth
-        s.setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
+        // بصمة جهاز حديثة جداً
+        s.setUserAgentString("Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36");
 
         myBrowser.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // الميزة 5: سكرول بشري هادئ
+                    injectStealthScripts();
                     handler.postDelayed(() -> {
-                        myBrowser.loadUrl("javascript:window.scrollBy({top: 650, behavior: 'smooth'});");
-                    }, 12000 + random.nextInt(5000));
+                        myBrowser.loadUrl("javascript:window.scrollBy({top: 850, behavior: 'smooth'});");
+                    }, 15000 + random.nextInt(5000));
                 }
             }
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                if (isBotRunning && request.isForMainFrame()) {
-                    startNewSession(); // الميزة 6: التعافي التلقائي
-                }
+                if (isBotRunning && request.isForMainFrame()) startNewSession();
             }
         });
         controlButton.setOnClickListener(v -> toggleBot());
+    }
+
+    private void injectStealthScripts() {
+        // تزييف الخصائص العميقة لتجاوز الحماية
+        String script = "javascript:(function() { " +
+                "Object.defineProperty(navigator, 'webdriver', {get: () => false}); " +
+                "Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8}); " +
+                "Object.defineProperty(navigator, 'deviceMemory', {get: () => 12}); " +
+                "})()";
+        myBrowser.loadUrl(script);
     }
 
     private void startNewSession() {
         if (!isBotRunning) return;
         CookieManager.getInstance().removeAllCookies(null);
 
-        // الميزة 7: التحكم اليدوي المزدوج
         if (proxyModeSwitch.isChecked() && !manualProxyInput.getText().toString().isEmpty()) {
             String[] list = manualProxyInput.getText().toString().split("\n");
             currentProxy = list[random.nextInt(list.length)].trim();
@@ -112,39 +124,26 @@ public class MainActivity extends Activity {
             currentProxy = VERIFIED_PROXIES.remove(0);
         }
         
-        detectCountry(currentProxy); // ميزة 8 الجديدة: كاشف الدولة
+        fetchGeoData(currentProxy);
         applyProxy(currentProxy);
 
         String url = linkInput.getText().toString().trim();
-        if (url.isEmpty() || url.contains("emulated")) {
-             updateUI("⚠️ يرجى إدخال رابط صحيح");
-             return;
-        }
-
+        if (url.isEmpty() || url.contains("emulated")) return;
         if (!url.startsWith("http")) url = "https://" + url;
 
+        // --- ميزة تزييف مصدر الزيارة (Referrer) ---
+        Map<String, String> extraHeaders = new HashMap<>();
+        String randomReferrer = REFERRERS[random.nextInt(REFERRERS.length)];
+        extraHeaders.put("Referer", randomReferrer);
+
         visitCounter++;
-        updateUI("");
-        myBrowser.loadUrl(url);
+        updateUI("🔗 Source: " + randomReferrer.replace("https://www.", ""));
+        myBrowser.loadUrl(url, extraHeaders); // تحميل الرابط مع المصدر الوهمي
 
-        // الميزة 9: إبطاء السرعة الآمن (3-6 دقائق)
-        int humanDelay = 180000 + random.nextInt(180000); 
+        // سرعة هادئة (3-7 دقائق)
+        int secureDelay = 180000 + random.nextInt(240000); 
         handler.removeCallbacksAndMessages(null);
-        handler.postDelayed(this::startNewSession, humanDelay);
-    }
-
-    private void detectCountry(String proxyStr) {
-        if (proxyStr.contains("Direct")) return;
-        Executors.newSingleThreadExecutor().execute(() -> {
-            try {
-                String ip = proxyStr.split(":")[0];
-                URL url = new URL("http://ip-api.com/json/" + ip);
-                BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
-                JSONObject json = new JSONObject(r.readLine());
-                currentCountry = json.optString("country", "Unknown") + " 🌍";
-                updateUI("");
-            } catch (Exception e) { currentCountry = "Detecting..."; }
-        });
+        handler.postDelayed(this::startNewSession, secureDelay);
     }
 
     private void applyProxy(String p) {
@@ -154,7 +153,7 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void startProxyHarvestingSystem() {
+    private void startGlobalHarvesting() {
         Executors.newSingleThreadExecutor().execute(() -> {
             while (true) {
                 for (String source : PROXY_SOURCES) {
@@ -162,7 +161,7 @@ public class MainActivity extends Activity {
                         BufferedReader r = new BufferedReader(new InputStreamReader(new URL(source).openStream()));
                         String l;
                         while ((l = r.readLine()) != null) {
-                            if (l.contains(":") && VERIFIED_PROXIES.size() < 250) validateProxy(l.trim());
+                            if (l.contains(":") && VERIFIED_PROXIES.size() < 300) validateProxy(l.trim());
                         }
                     } catch (Exception e) {}
                 }
@@ -176,12 +175,26 @@ public class MainActivity extends Activity {
             try {
                 String[] p = a.split(":");
                 HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1]))));
-                c.setConnectTimeout(4500);
+                c.setConnectTimeout(4000);
                 if (c.getResponseCode() == 200) {
                     VERIFIED_PROXIES.add(a);
                     updateUI("");
                 }
             } catch (Exception e) {}
+        });
+    }
+
+    private void fetchGeoData(String proxyStr) {
+        if (proxyStr.contains("Direct")) return;
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                String ip = proxyStr.split(":")[0];
+                URL url = new URL("http://ip-api.com/json/" + ip);
+                BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
+                JSONObject json = new JSONObject(r.readLine());
+                currentCountry = json.optString("country", "Unknown") + " 🌍";
+                updateUI("");
+            } catch (Exception e) { currentCountry = "Detecting..."; }
         });
     }
 
@@ -197,7 +210,7 @@ public class MainActivity extends Activity {
 
     private void updateUI(String msg) {
         runOnUiThread(() -> {
-            String status = msg.isEmpty() ? "🛡️ Stealth: ACTIVE" : msg;
+            String status = msg.isEmpty() ? "🛡️ Stealth: TITAN-ULTRA" : msg;
             dashboardView.setText(status + 
                 "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
                 "\n🌍 Origin: " + currentCountry + 
@@ -205,5 +218,5 @@ public class MainActivity extends Activity {
                 "\n📦 Global Pool: " + VERIFIED_PROXIES.size());
         });
     }
-                                              }
-                                    
+            }
+                            
