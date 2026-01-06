@@ -20,6 +20,7 @@ import java.net.URL;
 import java.util.Random;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private WebView myBrowser;
@@ -27,17 +28,36 @@ public class MainActivity extends Activity {
     private EditText linkInput, manualProxyInput;
     private TextView dashboardView;
     private Switch proxyModeSwitch;
+    
     private Handler handler = new Handler();
     private Random random = new Random();
-    private int visitCounter = 0, clickCounter = 0;
+    
+    private int visitCounter = 0;
+    private int clickCounter = 0;
     private boolean isBotRunning = false;
     private String currentProxy = "Direct";
+    private String currentCountry = "Searching...";
+    
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
+
+    // ميزة 1: المصادر المتعددة (عشرة مصادر عالمية)
+    private String[] PROXY_SOURCES = {
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks4.txt",
+        "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+        "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+        "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+        "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
+        "https://alexa.lr2b.com/proxylist.txt",
+        "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all",
+        "https://www.proxy-list.download/api/v1/get?type=http"
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_main); // الميزة 2: الحفاظ على الوضع المظلم
 
         dashboardView = findViewById(R.id.dashboardView);
         linkInput = findViewById(R.id.linkInput);
@@ -46,37 +66,34 @@ public class MainActivity extends Activity {
         controlButton = findViewById(R.id.controlButton);
         myBrowser = findViewById(R.id.myBrowser);
 
-        setupTitanEngine();
-        startProxySystem();
+        setupAdvancedEngine();
+        startProxyHarvestingSystem(); // الميزة 3: بوت الفحص التلقائي
     }
 
-    private void setupTitanEngine() {
+    private void setupAdvancedEngine() {
         WebSettings s = myBrowser.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setCacheMode(WebSettings.LOAD_DEFAULT); // السماح بالتحميل من الإنترنت دوماً
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
-        // محاكاة متصفح حقيقي متطور
-        s.setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36");
+        // الميزة 4: بصمة متصفح Gologin Stealth
+        s.setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36");
 
         myBrowser.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // سكرول بشري هادئ جداً بعد تحميل الصفحة بـ 10 ثوانٍ
+                    // الميزة 5: سكرول بشري هادئ
                     handler.postDelayed(() -> {
-                        myBrowser.loadUrl("javascript:window.scrollBy({top: 500, behavior: 'smooth'});");
-                    }, 10000 + random.nextInt(5000));
+                        myBrowser.loadUrl("javascript:window.scrollBy({top: 650, behavior: 'smooth'});");
+                    }, 12000 + random.nextInt(5000));
                 }
             }
-
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                // إذا فشل الاتصال بالإنترنت، انتظر قليلاً ثم جرب بروكسي آخر (Self-Healing)
                 if (isBotRunning && request.isForMainFrame()) {
-                    handler.postDelayed(() -> startNewSession(), 5000);
+                    startNewSession(); // الميزة 6: التعافي التلقائي
                 }
             }
         });
@@ -85,39 +102,49 @@ public class MainActivity extends Activity {
 
     private void startNewSession() {
         if (!isBotRunning) return;
-        
-        // تنظيف شامل لمنع التتبع الرقمي
         CookieManager.getInstance().removeAllCookies(null);
-        WebStorage.getInstance().deleteAllData();
 
-        // منطق البروكسي الهجين (يدوي/تلقائي)
+        // الميزة 7: التحكم اليدوي المزدوج
         if (proxyModeSwitch.isChecked() && !manualProxyInput.getText().toString().isEmpty()) {
             String[] list = manualProxyInput.getText().toString().split("\n");
             currentProxy = list[random.nextInt(list.length)].trim();
         } else if (!VERIFIED_PROXIES.isEmpty()) {
             currentProxy = VERIFIED_PROXIES.remove(0);
-        } else {
-            currentProxy = "Direct (Searching...)";
         }
         
+        detectCountry(currentProxy); // ميزة 8 الجديدة: كاشف الدولة
         applyProxy(currentProxy);
 
-        // تصحيح الرابط لمنع تحميل الملفات المحلية الخاطئة
         String url = linkInput.getText().toString().trim();
         if (url.isEmpty() || url.contains("emulated")) {
-            url = "https://www.google.com"; // رابط افتراضي إذا كان المدخل خاطئاً
-        } else if (!url.startsWith("http")) {
-            url = "https://" + url;
+             updateUI("⚠️ يرجى إدخال رابط صحيح");
+             return;
         }
 
+        if (!url.startsWith("http")) url = "https://" + url;
+
         visitCounter++;
-        updateUI();
+        updateUI("");
         myBrowser.loadUrl(url);
 
-        // --- تهدئة السرعة: إرسال زيارة واحدة كل 150 إلى 300 ثانية (2.5 - 5 دقائق) ---
-        int humanDelay = 150000 + random.nextInt(150000); 
+        // الميزة 9: إبطاء السرعة الآمن (3-6 دقائق)
+        int humanDelay = 180000 + random.nextInt(180000); 
         handler.removeCallbacksAndMessages(null);
         handler.postDelayed(this::startNewSession, humanDelay);
+    }
+
+    private void detectCountry(String proxyStr) {
+        if (proxyStr.contains("Direct")) return;
+        Executors.newSingleThreadExecutor().execute(() -> {
+            try {
+                String ip = proxyStr.split(":")[0];
+                URL url = new URL("http://ip-api.com/json/" + ip);
+                BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
+                JSONObject json = new JSONObject(r.readLine());
+                currentCountry = json.optString("country", "Unknown") + " 🌍";
+                updateUI("");
+            } catch (Exception e) { currentCountry = "Detecting..."; }
+        });
     }
 
     private void applyProxy(String p) {
@@ -127,33 +154,32 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void startProxySystem() {
+    private void startProxyHarvestingSystem() {
         Executors.newSingleThreadExecutor().execute(() -> {
             while (true) {
-                try {
-                    // سحب بروكسيات جديدة من مصادر عالمية
-                    URL url = new URL("https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt");
-                    BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
-                    String l;
-                    while ((l = r.readLine()) != null) {
-                        if (l.contains(":") && VERIFIED_PROXIES.size() < 100) validate(l.trim());
-                    }
-                    Thread.sleep(600000); // تحديث كل 10 دقائق
-                } catch (Exception e) {}
+                for (String source : PROXY_SOURCES) {
+                    try {
+                        BufferedReader r = new BufferedReader(new InputStreamReader(new URL(source).openStream()));
+                        String l;
+                        while ((l = r.readLine()) != null) {
+                            if (l.contains(":") && VERIFIED_PROXIES.size() < 250) validateProxy(l.trim());
+                        }
+                    } catch (Exception e) {}
+                }
+                try { Thread.sleep(600000); } catch (Exception e) {}
             }
         });
     }
 
-    private void validate(String a) {
+    private void validateProxy(String a) {
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 String[] p = a.split(":");
-                Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])));
-                HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(proxy);
-                c.setConnectTimeout(5000); // زيادة المهلة للبروكسيات البعيدة
+                HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1]))));
+                c.setConnectTimeout(4500);
                 if (c.getResponseCode() == 200) {
                     VERIFIED_PROXIES.add(a);
-                    updateUI();
+                    updateUI("");
                 }
             } catch (Exception e) {}
         });
@@ -162,18 +188,22 @@ public class MainActivity extends Activity {
     private void toggleBot() {
         isBotRunning = !isBotRunning;
         controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN BOT");
-        if (isBotRunning) {
-            startNewSession();
-        } else {
+        if (isBotRunning) startNewSession();
+        else {
             myBrowser.loadUrl("about:blank");
             handler.removeCallbacksAndMessages(null);
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-                ProxyController.getInstance().clearProxyOverride(r -> {}, () -> {});
-            }
         }
     }
 
-    private void updateUI() {
-        runOnUiThread(() -> dashboardView.setText("🛡️ Mode: Gologin Stealth\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + "\n🌐 Proxy: " + currentProxy + " | Verified Vault: " + VERIFIED_PROXIES.size()));
+    private void updateUI(String msg) {
+        runOnUiThread(() -> {
+            String status = msg.isEmpty() ? "🛡️ Stealth: ACTIVE" : msg;
+            dashboardView.setText(status + 
+                "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
+                "\n🌍 Origin: " + currentCountry + 
+                "\n🌐 Proxy: " + currentProxy + 
+                "\n📦 Global Pool: " + VERIFIED_PROXIES.size());
+        });
     }
-            }
+                                              }
+                                    
