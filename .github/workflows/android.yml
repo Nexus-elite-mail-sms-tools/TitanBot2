@@ -1,32 +1,33 @@
-name: TitanBot Final Success
+name: TitanBot Success
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: 1. Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: 2. JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Stable Gradle
-        # تثبيت إصدار مستقر لتجنب مشاكل الإصدارات الحديثة
-        uses: gradle/gradle-build-action@v3
+      - name: 3. Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 7.5
 
-      - name: Build APK
-        # تشغيل البناء المباشر
-        run: gradle assembleDebug --no-daemon
+      - name: 4. Final Build
+        # هذا الأمر يقوم بتجاوز الفحوصات المعقدة للبناء المباشر
+        run: |
+          chmod +x gradlew || echo "No wrapper"
+          gradle assembleDebug --stacktrace --no-daemon
 
-      - name: Upload APK
+      - name: 5. Secure APK
         uses: actions/upload-artifact@v4
         with:
-          name: TitanBot-Success-APK
+          name: TitanBot-Final
           path: app/build/outputs/apk/debug/*.apk
           
