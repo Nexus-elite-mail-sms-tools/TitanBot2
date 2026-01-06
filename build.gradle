@@ -4,8 +4,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        // هذا هو السطر الذي ينقصك لربط النظام
-        classpath 'com.android.tools.build:gradle:7.4.2'
+        classpath "com.android.tools.build:gradle:7.4.2"
     }
 }
 
