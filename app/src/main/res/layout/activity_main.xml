@@ -4,23 +4,26 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#F4F7F9"
+    android:background="#121212" 
     android:padding="16dp">
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardCornerRadius="15dp"
-        app:cardElevation="4dp"
+        app:cardElevation="8dp"
+        app:cardBackgroundColor="#1E1E1E"
         android:layout_marginBottom="12dp">
+        
         <TextView
             android:id="@+id/dashboardView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:padding="16dp"
-            android:text="Status: Ready\nVisits: 0 | Clicks: 0"
-            android:textColor="#2C3E50"
-            android:textSize="14sp" />
+            android:text="Status: Running System\nVisits: 0 | Clicks: 0"
+            android:textColor="#BB86FC"
+            android:textSize="14sp"
+            android:textStyle="bold" />
     </androidx.cardview.widget.CardView>
 
     <EditText
@@ -28,7 +31,10 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:background="@drawable/edit_text_bg"
+        android:backgroundTint="#2C2C2C"
         android:hint="Target URL (https://...)"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#808080"
         android:padding="12dp"
         android:layout_marginBottom="8dp" />
 
@@ -37,7 +43,10 @@
         android:layout_width="match_parent"
         android:layout_height="80dp"
         android:background="@drawable/edit_text_bg"
-        android:hint="Paste Proxies (IP:Port) - One per line"
+        android:backgroundTint="#2C2C2C"
+        android:hint="Paste Proxies (IP:Port)"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#808080"
         android:inputType="textMultiLine"
         android:gravity="top"
         android:padding="10dp"
@@ -48,6 +57,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Manual Proxy Mode"
+        android:textColor="#03DAC5"
+        android:textStyle="bold"
         android:layout_marginBottom="10dp" />
 
     <Button
@@ -55,14 +66,16 @@
         android:layout_width="match_parent"
         android:layout_height="55dp"
         android:text="LAUNCH TITAN BOT"
-        android:backgroundTint="#27AE60"
-        android:textColor="#FFFFFF"
+        android:backgroundTint="#BB86FC"
+        android:textColor="#000000"
+        android:textStyle="bold"
         app:cornerRadius="10dp"
         android:layout_marginBottom="10dp"/>
 
     <WebView
         android:id="@+id/myBrowser"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:background="#1E1E1E" />
 
 </LinearLayout>
