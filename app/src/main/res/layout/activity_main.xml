@@ -3,37 +3,38 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#121212"
-    android:padding="8dp">
+    android:background="#0F0F0F"
+    android:padding="10dp">
 
     <TextView
         android:id="@+id/dashboardView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="💰 Zenith Master | Ready"
+        android:text="💰 Master Jumps: 0"
         android:textColor="#BB86FC"
-        android:textSize="18sp"
+        android:textSize="20sp"
         android:gravity="center"
-        android:padding="10dp"/>
+        android:padding="15dp"/>
 
     <TextView
         android:id="@+id/serverCountView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="🌐 V5 POOL: 0"
+        android:text="🌐 INFINITY POOL: 0 [WAIT]"
         android:textColor="#03DAC5"
-        android:gravity="center"/>
+        android:gravity="center"
+        android:layout_marginBottom="10dp"/>
 
     <EditText
         android:id="@+id/linkInput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter Direct Link Here"
+        android:hint="Paste Your Direct Link Here"
         android:textColor="#FFFFFF"
-        android:textColorHint="#666666"
-        android:background="#1E1E1E"
-        android:layout_margin="10dp"
-        android:padding="12dp"/>
+        android:textColorHint="#444444"
+        android:background="#1A1A1A"
+        android:padding="15dp"
+        android:layout_marginBottom="10dp"/>
 
     <Button
         android:id="@+id/controlButton"
@@ -41,7 +42,8 @@
         android:layout_height="wrap_content"
         android:text="🚀 LAUNCH ZENITH V5"
         android:backgroundTint="#BB86FC"
-        android:textColor="#000000"/>
+        android:textColor="#000000"
+        android:textStyle="bold"/>
 
     <LinearLayout
         android:id="@+id/webContainer"
@@ -51,5 +53,4 @@
         android:layout_marginTop="10dp"
         android:weightSum="3">
         </LinearLayout>
-
 </LinearLayout>
