@@ -76,7 +76,7 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setAppCacheEnabled(true);
+        // تم إزالة السطر المسبب للخطأ setAppCacheEnabled لضمان نجاح الـ Build
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         
@@ -84,14 +84,14 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // قتل WebRTC وتخفي Gologin
+                    // حماية WebRTC وتخفي Gologin
                     myBrowser.loadUrl("javascript:(function(){" +
                         "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
                         "var pc = window.RTCPeerConnection || window.webkitRTCPeerConnection;" +
                         "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
                         "})()");
 
-                    // النقر المتذبذب الذكي
+                    // النقر المتذبذب الذكي 3-5%
                     if (random.nextInt(100) < (3 + random.nextInt(3))) {
                         mainHandler.postDelayed(() -> {
                             myBrowser.loadUrl("javascript:(function(){" +
@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                // ميزة: إعادة المحاولة التلقائية عند فشل الرد (ERR_EMPTY_RESPONSE)
+                // إعادة المحاولة عند حدوث ERR_EMPTY_RESPONSE
                 if (isBotRunning && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     if (error.getErrorCode() == ERROR_CONNECT || error.getErrorCode() == ERROR_TIMEOUT) {
                         mainHandler.postDelayed(() -> startNewSession(), 2000);
@@ -149,11 +149,11 @@ public class MainActivity extends Activity {
                 HttpURLConnection c = (HttpURLConnection) new URL("http://ip-api.com/json/" + p[0]).openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                c.setConnectTimeout(5000); 
+                c.setConnectTimeout(6000); 
                 if (c.getResponseCode() == 200) {
                     JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(c.getInputStream())).readLine());
                     String org = j.optString("org", "").toLowerCase();
-                    // فلترة بروكسيات الشركات المكشوفة (مثل AWS و Azure)
+                    // فلترة بروكسيات الشركات المكشوفة
                     if (!org.contains("amazon") && !org.contains("microsoft") && !org.contains("google")) {
                         if (!VERIFIED_PROXIES.contains(addr)) {
                             VERIFIED_PROXIES.add(addr);
@@ -168,7 +168,6 @@ public class MainActivity extends Activity {
     private void startNewSession() {
         if (!isBotRunning) return;
         CookieManager.getInstance().removeAllCookies(null);
-        CookieManager.getInstance().flush();
 
         if (proxyModeSwitch.isChecked() && !manualProxyInput.getText().toString().isEmpty()) {
             String[] list = manualProxyInput.getText().toString().split("\n");
@@ -191,7 +190,7 @@ public class MainActivity extends Activity {
         headers.put("Referer", "https://www.google.com/");
         myBrowser.loadUrl(url, headers);
 
-        // توقيت طويل (50-90 ثانية) لضمان تجاوز الفحص
+        // توقيت طويل لتجاوز فحص أدستيرا
         mainHandler.postDelayed(this::startNewSession, 50000 + random.nextInt(40000));
     }
 
@@ -241,4 +240,5 @@ public class MainActivity extends Activity {
     }
 
     private void stopNotification() { ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1); }
-                        }
+                                }
+            
