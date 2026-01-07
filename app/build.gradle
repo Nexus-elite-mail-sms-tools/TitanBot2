@@ -10,8 +10,10 @@ android {
         applicationId "com.titan.bot"
         minSdk 21
         targetSdk 34
-        versionCode 1
+        versionCode 5
         versionName "5.1-Zenith"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
@@ -29,6 +31,8 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
-    // هذه المكتبة ضرورية جداً لتشغيل البروكسي في كودك
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // المكتبة الأهم لتشغيل البروكسي (بدونها لن يعمل الكود العملاق)
     implementation 'androidx.webkit:webkit:1.10.0'
 }
