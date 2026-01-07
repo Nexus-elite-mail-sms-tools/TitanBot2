@@ -17,7 +17,6 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.view.ViewGroup;
-import android.widget.Toast;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -30,6 +29,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -49,7 +49,7 @@ public class MainActivity extends Activity {
     private int totalJumps = 0;
     private boolean isRunning = false;
     
-    // ذاكرة لتجنب تكرار الفحص
+    private ConcurrentHashMap<String, Integer> proxyStrikes = new ConcurrentHashMap<>();
     private Set<String> CHECKED_HISTORY = Collections.synchronizedSet(new HashSet<>());
     private CopyOnWriteArrayList<String> BLACKLIST = new CopyOnWriteArrayList<>();
     private CopyOnWriteArrayList<String> PROXY_POOL = new CopyOnWriteArrayList<>();
@@ -67,7 +67,7 @@ public class MainActivity extends Activity {
             mHandler.postDelayed(() -> {
                 try {
                     PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::15sMode");
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::Accelerator");
 
                     dashView = findViewById(R.id.dashboardView);
                     aiStatusView = findViewById(R.id.aiStatusView);
@@ -76,23 +76,21 @@ public class MainActivity extends Activity {
                     controlBtn = findViewById(R.id.controlButton);
                     webContainer = findViewById(R.id.webContainer);
 
+                    // تفعيل الكاش القوي لتسريع التحميل
                     CookieManager.getInstance().setAcceptCookie(true);
-                    CookieManager.getInstance().removeAllCookies(null);
 
                     if (webContainer != null) {
                         web1 = initWeb(1); web2 = initWeb(2); web3 = initWeb(3);
                         setupTripleLayout();
                         startNuclearScraping(); 
                         controlBtn.setOnClickListener(v -> toggleEngine());
-                        aiStatusView.setText("⏱️ Timeout Set: 15 Seconds Logic");
+                        aiStatusView.setText("🚀 Ad Accelerator: Active & Optimized");
                         
-                        // إعادة تدوير الخوادم كل 3 دقائق لضمان عدم توقف التجميع
                         mHandler.postDelayed(new Runnable() {
                             @Override
                             public void run() {
                                 CHECKED_HISTORY.clear();
-                                aiStatusView.setText("♻️ Refreshing Sources...");
-                                mHandler.postDelayed(this, 180000); // كل 3 دقائق
+                                mHandler.postDelayed(this, 180000); 
                             }
                         }, 180000);
                     }
@@ -113,57 +111,119 @@ public class MainActivity extends Activity {
         WebAppInterface(Context c, int id) { mContext = c; webId = id; }
         @JavascriptInterface
         public void reportBadProxy(String reason) {
-            mHandler.post(() -> handleBadProxy(webId, reason));
+            mHandler.post(() -> banImmediately(webId, reason));
         }
     }
 
-    private void handleBadProxy(int id, String reason) {
+    private void banImmediately(int id, String reason) {
         String badProxy = (id == 1) ? currentProxy1 : (id == 2) ? currentProxy2 : currentProxy3;
         if (!badProxy.isEmpty() && !BLACKLIST.contains(badProxy)) {
             BLACKLIST.add(badProxy);
             PROXY_POOL.remove(badProxy);
-            aiStatusView.setText("⏱️ Timeout/Block: " + badProxy);
+            aiStatusView.setText("⛔ BANNED: " + badProxy);
             updateUI();
         }
+        restartBot(id);
+    }
+
+    private void handleConnectionError(int id) {
+        String proxy = (id == 1) ? currentProxy1 : (id == 2) ? currentProxy2 : currentProxy3;
+        if (!proxy.isEmpty()) {
+            int strikes = proxyStrikes.getOrDefault(proxy, 0) + 1;
+            proxyStrikes.put(proxy, strikes);
+
+            if (strikes >= 3) {
+                if (!BLACKLIST.contains(proxy)) {
+                    BLACKLIST.add(proxy);
+                    PROXY_POOL.remove(proxy);
+                    aiStatusView.setText("💀 Dead: " + proxy);
+                }
+            } else {
+                PROXY_POOL.remove(proxy); 
+                PROXY_POOL.add(proxy);    
+                aiStatusView.setText("♻️ Recycling: " + proxy);
+            }
+            updateUI();
+        }
+        restartBot(id);
+    }
+
+    private void restartBot(int id) {
         WebView wv = (id == 1) ? web1 : (id == 2) ? web2 : web3;
-        if(wv != null) runSingleBot(wv, id);
+        if(wv != null) {
+            wv.loadUrl("about:blank"); 
+            mHandler.postDelayed(() -> runSingleBot(wv, id), 500);
+        }
     }
 
     private WebView initWeb(int id) {
         WebView wv = new WebView(this);
         WebSettings s = wv.getSettings();
+        
+        // --- إعدادات تسريع الإعلانات (Ad Accelerator) ---
         s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setLoadsImagesAutomatically(true);
+        s.setDomStorageEnabled(true); // ضروري جداً للإعلانات
+        s.setDatabaseEnabled(true);
+        
+        // 1. تحميل الصور: نقوم بتفعيلها لكن نعتمد على الكاش
+        s.setLoadsImagesAutomatically(true); 
+        s.setBlockNetworkImage(false); 
+        
+        // 2. الكاش العدواني (Aggressive Caching)
+        // إذا كان الملف (مثل سكربت الإعلان) موجوداً، استخدمه ولا تحمله من الشبكة
+        s.setCacheMode(WebSettings.LOAD_CACHE_ELSE_NETWORK); 
+        
+        // 3. تحسينات العرض (Rendering)
+        s.setRenderPriority(WebSettings.RenderPriority.HIGH); // أولوية قصوى للمعالجة
+        s.setEnableSmoothTransition(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        
+        // 4. تقليل استهلاك البيانات غير الضرورية
+        s.setMediaPlaybackRequiresUserGesture(true); // منع تشغيل الفيديو التلقائي الذي يستهلك النت
         
         wv.addJavascriptInterface(new WebAppInterface(this, id), "TitanGuard");
         wv.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                // هنا التعديل الذي طلبته: 15 ثانية بالضبط
-                Runnable timeoutTask = () -> handleBadProxy(id, "Timeout 15s");
+                Runnable timeoutTask = () -> handleConnectionError(id); 
                 if (id == 1) timeoutRunnable1 = timeoutTask;
                 else if (id == 2) timeoutRunnable2 = timeoutTask;
                 else timeoutRunnable3 = timeoutTask;
-                
-                mHandler.postDelayed(timeoutTask, 15000); // 15000 ميلي ثانية = 15 ثانية
+                mHandler.postDelayed(timeoutTask, 20000); // رفعنا المهلة لـ 20 ثانية لإعطاء فرصة للكاش
             }
 
             @Override
             public void onPageFinished(WebView v, String url) {
-                // إلغاء المؤقت إذا نجح التحميل قبل 15 ثانية
                 if (id == 1) mHandler.removeCallbacks(timeoutRunnable1);
                 else if (id == 2) mHandler.removeCallbacks(timeoutRunnable2);
                 else mHandler.removeCallbacks(timeoutRunnable3);
                 
+                // سكريبت لتنظيف الصفحة وإبراز الإعلانات
                 v.evaluateJavascript(
-                    "javascript:(function() { var text = document.body.innerText; if(text.includes('Anonymous Proxy') || text.includes('Access Denied')) { window.TitanGuard.reportBadProxy('Content Block'); } })()", null);
+                    "javascript:(function() {" +
+                    "  var text = document.body.innerText;" +
+                    "  if(text.includes('Anonymous Proxy') || text.includes('Access Denied')) {" +
+                    "     window.TitanGuard.reportBadProxy('Content Block');" +
+                    "  }" +
+                    "  // محاولة تسريع العرض بإخفاء الخلفيات الثقيلة" +
+                    "  document.body.style.backgroundImage = 'none';" + 
+                    "  document.body.style.backgroundColor = '#ffffff';" +
+                    "})()", null);
             }
 
             @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                if (isRunning && req.isForMainFrame()) handleBadProxy(id, "NetErr");
+                if (isRunning && req.isForMainFrame()) {
+                    handleConnectionError(id);
+                }
+            }
+            
+            // تسريع تحميل الموارد المكررة (مثل سكربتات جوجل)
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                // هنا يمكن إضافة منطق متقدم لمنع تحميل الخطوط الثقيلة أو الفيديو
+                // حالياً نتركه افتراضياً لضمان عمل الإعلانات
+                return super.shouldInterceptRequest(view, request);
             }
         });
         return wv;
@@ -171,7 +231,7 @@ public class MainActivity extends Activity {
 
     private void toggleEngine() {
         isRunning = !isRunning;
-        controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 START 15s ENGINE");
+        controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 START ACCELERATOR");
         if (isRunning) {
             if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire();
             runSingleBot(web1, 1);
@@ -185,14 +245,19 @@ public class MainActivity extends Activity {
 
     private void runSingleBot(WebView wv, int id) {
         if (!isRunning || wv == null) return;
+        
         if (PROXY_POOL.isEmpty()) {
-            mHandler.postDelayed(() -> runSingleBot(wv, id), 2000);
+            aiStatusView.setText("⏳ Fetching IPs...");
+            mHandler.postDelayed(() -> runSingleBot(wv, id), 3000);
             return;
         }
         
         String proxy;
-        try { proxy = PROXY_POOL.get(rnd.nextInt(Math.min(PROXY_POOL.size(), 50))); } 
-        catch (Exception e) { proxy = PROXY_POOL.get(0); }
+        try { 
+            proxy = PROXY_POOL.get(0); 
+            PROXY_POOL.remove(0);
+            PROXY_POOL.add(proxy);
+        } catch (Exception e) { return; }
 
         if (id == 1) currentProxy1 = proxy;
         else if (id == 2) currentProxy2 = proxy;
@@ -207,8 +272,10 @@ public class MainActivity extends Activity {
             } catch (Exception e) { runSingleBot(wv, id); return; }
         }
 
-        wv.clearHistory(); wv.clearCache(true);
+        // مسح الكوكيز لجعل الزيارة فريدة، ولكن الحفاظ على الكاش لتسريع التحميل
         CookieManager.getInstance().removeAllCookies(null);
+        // ملاحظة: لم نقم بمسح الكاش (wv.clearCache) هنا عمداً!
+        
         wv.getSettings().setUserAgentString("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36");
 
         String url = linkIn.getText().toString().trim();
@@ -219,13 +286,12 @@ public class MainActivity extends Activity {
         wv.loadUrl(url, headers);
         totalJumps++;
         
-        // وقت البقاء في الصفحة 30 ثانية
         mHandler.postDelayed(() -> runSingleBot(wv, id), 30000);
     }
 
     private void updateUI() {
         mHandler.post(() -> {
-            serverCountView.setText("🔋 Pool: " + PROXY_POOL.size() + " | ☠️ Banned: " + BLACKLIST.size());
+            serverCountView.setText("🔋 Active: " + PROXY_POOL.size() + " | ☠️ Banned: " + BLACKLIST.size());
             dashView.setText("💰 Visits: " + totalJumps);
         });
     }
@@ -289,11 +355,11 @@ public class MainActivity extends Activity {
                 URL testUrl = new URL("http://www.gstatic.com/generate_204");
                 
                 HttpURLConnection c = (HttpURLConnection) testUrl.openConnection(proxy);
-                c.setConnectTimeout(10000); // 10 ثواني للاتصال فقط (للتجميع)
+                c.setConnectTimeout(10000); 
                 c.setReadTimeout(10000);
                 c.connect();
                 
-                if (c.getResponseCode() == 204 || c.getResponseCode() == 200) {
+                if (c.getResponseCode() > 0) {
                     if (!PROXY_POOL.contains(a)) {
                         PROXY_POOL.add(a);
                         updateUI();
@@ -303,4 +369,5 @@ public class MainActivity extends Activity {
             } catch (Exception e) {}
         });
     }
-    }
+                }
+            
