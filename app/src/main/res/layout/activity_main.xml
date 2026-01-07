@@ -1,80 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="#121212"
-    android:fillViewport="true">
+    android:padding="8dp">
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/dashboardView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:text="💰 Zenith Master | Ready"
+        android:textColor="#BB86FC"
+        android:textSize="18sp"
+        android:gravity="center"
+        android:padding="10dp"/>
 
-        <TextView
-            android:id="@+id/serverCountView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1E1E1E"
-            android:padding="12dp"
-            android:text="🌐 PROXY POOL: 0 [OFFLINE]"
-            android:textColor="#03DAC6"
-            android:textStyle="bold"
-            android:textSize="14sp"
-            android:layout_marginBottom="8dp"
-            android:gravity="center" />
+    <TextView
+        android:id="@+id/serverCountView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🌐 V5 POOL: 0"
+        android:textColor="#03DAC5"
+        android:gravity="center"/>
 
-        <TextView
-            android:id="@+id/dashboardView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1E1E1E"
-            android:padding="12dp"
-            android:text="🔥 Ad-Forcer Active | Visits: 0"
-            android:textColor="#BB86FC"
-            android:textSize="14sp" />
+    <EditText
+        android:id="@+id/linkInput"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Direct Link Here"
+        android:textColor="#FFFFFF"
+        android:textColorHint="#666666"
+        android:background="#1E1E1E"
+        android:layout_margin="10dp"
+        android:padding="12dp"/>
 
-        <TextView
-            android:id="@+id/aiStatusView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="#252525"
-            android:padding="8dp"
-            android:text="🤖 AI Intel: Scanning Security..."
-            android:textColor="#FFFFFF"
-            android:textSize="12sp" />
+    <Button
+        android:id="@+id/controlButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🚀 LAUNCH ZENITH V5"
+        android:backgroundTint="#BB86FC"
+        android:textColor="#000000"/>
 
-        <EditText
-            android:id="@+id/linkInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Paste Adsterra Direct Link Here"
-            android:textColor="#FFFFFF"
-            android:textColorHint="#666666"
-            android:backgroundTint="#BB86FC"
-            android:padding="12dp" />
+    <LinearLayout
+        android:id="@+id/webContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp"
+        android:weightSum="3">
+        </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/webContainer"
-            android:layout_width="match_parent"
-            android:layout_height="250dp"
-            android:layout_marginTop="16dp"
-            android:orientation="horizontal"
-            android:weightSum="3"
-            android:background="#000000"
-            android:padding="2dp" />
-
-        <Button
-            android:id="@+id/controlButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:backgroundTint="#BB86FC"
-            android:text="LAUNCH AD-FORCER"
-            android:textColor="#000000"
-            android:textStyle="bold" />
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>
