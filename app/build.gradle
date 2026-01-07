@@ -5,18 +5,24 @@ plugins {
 android {
     namespace 'com.titan.bot'
     compileSdk 34
+
     defaultConfig {
         applicationId "com.titan.bot"
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName "5.1-Zenith"
+        versionCode 5
+        versionName "5.0-Turbo"
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
-    // هذه المكتبة هي التي ستمنع "توقف التطبيق" المستمر
+    // المكتبة التي تجعل الأزرار والبروكسي تعمل فعلياً
     implementation 'androidx.webkit:webkit:1.10.0'
 }
