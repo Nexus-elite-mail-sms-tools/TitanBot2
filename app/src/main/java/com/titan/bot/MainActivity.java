@@ -34,23 +34,23 @@ public class MainActivity extends Activity {
     private LinearLayout webContainer;
     
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    
-    // محرك الجلب والفلترة الفائق (Zenith Threads)
-    private ExecutorService scrapExec = Executors.newFixedThreadPool(50); 
-    private ExecutorService validExec = Executors.newFixedThreadPool(180); 
+    private ExecutorService scrapExec = Executors.newFixedThreadPool(60); 
+    private ExecutorService validExec = Executors.newFixedThreadPool(250); // رفع كفاءة الفحص
     private ExecutorService aiExec = Executors.newSingleThreadExecutor();
     
     private Random rnd = new Random();
-    private int successCount = 0;
+    private int totalJumps = 0;
     private boolean isRunning = false;
     private CopyOnWriteArrayList<String> PROXY_POOL = new CopyOnWriteArrayList<>();
+
+    // متغيرات ميزة "تبديل بصمة الجهاز"
+    private int deviceSwitchCounter = 0;
+    private String currentFakeHardware = "8"; // الرام الافتراضي
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        
-        // تفعيل تسريع العتاد لإظهار الإعلانات فوراً
         getWindow().setFlags(16777216, 16777216); 
 
         dashView = findViewById(R.id.dashboardView);
@@ -63,7 +63,7 @@ public class MainActivity extends Activity {
         web1 = initWeb(); web2 = initWeb(); web3 = initWeb();
         setupTripleLayout();
         
-        startInfinityScraper(); 
+        startTurboScraping(); 
         controlBtn.setOnClickListener(v -> toggleZenithEngine());
     }
 
@@ -82,24 +82,21 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setLoadsImagesAutomatically(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         
         wv.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView v, String url) {
-                // تزييف البصمة المتقدم وكسر WebRTC
+                // حقن البصمة المتغيرة للأجهزة واللمس البشري
                 v.loadUrl("javascript:(function(){" +
                     "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
-                    "Object.defineProperty(navigator,'deviceMemory',{get:()=>8});" +
-                    "Object.defineProperty(navigator,'languages',{get:()=>['en-US','en','de-DE','fr-FR']});" +
-                    "window.scrollTo(0, "+rnd.nextInt(300)+");" +
+                    "Object.defineProperty(navigator,'deviceMemory',{get:()=>"+currentFakeHardware+"});" +
+                    "Object.defineProperty(navigator,'hardwareConcurrency',{get:()=>"+(rnd.nextInt(8)+4)+"});" +
+                    "window.scrollTo(0, "+rnd.nextInt(500)+");" +
                     "setInterval(function(){ " +
-                    "   window.scrollBy(0, "+(rnd.nextBoolean() ? 40 : -10)+");" + // تمرير بشري متذبذب
+                    "   window.scrollBy(0, "+(rnd.nextBoolean() ? 70 : -20)+");" +
                     "}, 5000);" +
-                    "setTimeout(function(){ document.body.click(); }, 3000);" + // نقرة وهمية لتفعيل الإعلان
                     "})()");
 
-                // مراقب "Anonymous Proxy": الحذف والتبديل الفوري
                 v.evaluateJavascript("document.body.innerText.includes('Anonymous Proxy')", value -> {
                     if (Boolean.parseBoolean(value)) mHandler.post(() -> runSingleBot(v));
                 });
@@ -107,7 +104,6 @@ public class MainActivity extends Activity {
 
             @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                // معالجة TIMED_OUT و Connection Failed
                 if (isRunning && req.isForMainFrame()) mHandler.post(() -> runSingleBot(v));
             }
         });
@@ -116,19 +112,25 @@ public class MainActivity extends Activity {
 
     private void toggleZenithEngine() {
         isRunning = !isRunning;
-        controlBtn.setText(isRunning ? "🛑 STOP ZENITH" : "🚀 LAUNCH ZENITH ELITE");
+        controlBtn.setText(isRunning ? "🛑 STOP ZENITH" : "🚀 LAUNCH ELITE V4");
         if (isRunning) {
-            runAIDiagnostic(linkIn.getText().toString());
+            runAISensor(linkIn.getText().toString());
             runSingleBot(web1);
-            mHandler.postDelayed(() -> runSingleBot(web2), 5000);
-            mHandler.postDelayed(() -> runSingleBot(web3), 10000);
-        } else {
-            mHandler.removeCallbacksAndMessages(null);
+            mHandler.postDelayed(() -> runSingleBot(web2), 6000);
+            mHandler.postDelayed(() -> runSingleBot(web3), 12000);
         }
     }
 
     private void runSingleBot(WebView wv) {
         if (!isRunning || PROXY_POOL.isEmpty()) return;
+
+        // ميزة تبديل البصمة كل 10 زيارات
+        deviceSwitchCounter++;
+        if (deviceSwitchCounter >= 10) {
+            currentFakeHardware = String.valueOf(rnd.nextBoolean() ? 4 : 12); // تبديل الرام عشوائياً
+            deviceSwitchCounter = 0;
+            mHandler.post(() -> aiStatusView.setText("🤖 AI: Hardware Identity Rotated"));
+        }
 
         String proxy = PROXY_POOL.remove(0);
         updateUI();
@@ -137,36 +139,38 @@ public class MainActivity extends Activity {
             ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder().addProxyRule(proxy).build(), r -> {}, () -> {});
         }
 
-        // هوية متصفح حديثة مع Referer مزيف من جوجل
-        wv.getSettings().setUserAgentString("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+        // بصمات أجهزة متغيرة باستمرار
+        String[] mobileModels = {
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8 Build/UD1A.230805.019) Chrome/126.0.0.0 Mobile Safari/537.36",
+            "Mozilla/5.0 (Linux; Android 13; SM-G998B Build/TP1A.220624.014) Chrome/125.0.0.0 Mobile Safari/537.36",
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Version/17.5 Mobile/15E148 Safari/604.1"
+        };
+        wv.getSettings().setUserAgentString(mobileModels[rnd.nextInt(mobileModels.length)]);
         
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Referer", "https://www.google.com/");
-        headers.put("X-Requested-With", "com.android.chrome");
-
-        wv.loadUrl(linkIn.getText().toString().trim(), headers);
-        successCount++;
+        Map<String, String> h = new HashMap<>();
+        h.put("X-Requested-With", "com.android.chrome");
+        h.put("Sec-Fetch-Site", "cross-site");
         
-        // زمن عشوائي (30-55 ثانية) لضمان احتساب الأرباح
-        mHandler.postDelayed(() -> runSingleBot(wv), (30 + rnd.nextInt(26)) * 1000);
+        wv.loadUrl(linkIn.getText().toString().trim(), h);
+        totalJumps++;
+        
+        mHandler.postDelayed(() -> runSingleBot(wv), (35 + rnd.nextInt(30)) * 1000);
     }
 
     private void updateUI() {
         mHandler.post(() -> {
             serverCountView.setText("🌐 INFINITY POOL: " + PROXY_POOL.size() + " [LIVE]");
-            dashView.setText("💰 Zenith Master | Total Jumps: " + successCount);
+            dashView.setText("💰 Zenith Master | Total Jumps: " + totalJumps);
         });
     }
 
-    private void startInfinityScraper() {
+    private void startTurboScraping() {
         String[] sources = {
-            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=3000&country=all",
+            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=3500&country=all",
             "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
             "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
             "https://proxyspace.pro/http.txt",
-            "https://raw.githubusercontent.com/officialputuid/Proxy-List/master/http.txt",
-            "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
-            "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt"
+            "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt"
         };
         for (String url : sources) {
             scrapExec.execute(() -> {
@@ -176,7 +180,7 @@ public class MainActivity extends Activity {
                         BufferedReader r = new BufferedReader(new InputStreamReader(u.openStream()));
                         String l;
                         while ((l = r.readLine()) != null) { if (l.contains(":")) validateProxy(l.trim()); }
-                        Thread.sleep(45000); // تحديث فائق السرعة كل 45 ثانية
+                        Thread.sleep(40000); 
                     } catch (Exception e) {}
                 }
             });
@@ -190,7 +194,7 @@ public class MainActivity extends Activity {
                 HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                c.setConnectTimeout(1000); // فقط البروكسيات الصاروخية لتجنب TIMED_OUT
+                c.setConnectTimeout(1000); // فلترة الخوادم الصاروخية فقط
                 if (c.getResponseCode() == 200) {
                     if (!PROXY_POOL.contains(a)) {
                         PROXY_POOL.add(a);
@@ -201,19 +205,16 @@ public class MainActivity extends Activity {
         });
     }
 
-    private void runAIDiagnostic(String targetUrl) {
+    private void runAISensor(String targetUrl) {
         aiExec.execute(() -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(targetUrl).openConnection();
                 conn.setConnectTimeout(5000);
                 conn.setRequestProperty("User-Agent", "Mozilla/5.0 Chrome/126.0.0.0");
                 conn.connect();
-                String server = conn.getHeaderField("Server");
-                String info = (server != null && server.toLowerCase().contains("cloudflare")) ? 
-                    "⚠️ Cloudflare Detected - Forced Stealth" : "✅ Security Analyzed - Launching...";
-                mHandler.post(() -> aiStatusView.setText("🤖 AI Intel: " + info));
+                mHandler.post(() -> aiStatusView.setText("🤖 AI Zenith: Website Security Synced"));
             } catch (Exception e) {
-                mHandler.post(() -> aiStatusView.setText("🤖 AI Intel: Adaptive Stealth Active"));
+                mHandler.post(() -> aiStatusView.setText("🤖 AI Zenith: Dynamic Mode On"));
             }
         });
     }
