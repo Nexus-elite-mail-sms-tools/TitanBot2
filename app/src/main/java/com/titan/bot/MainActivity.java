@@ -1,12 +1,6 @@
 package com.titan.bot;
 
 import android.app.Activity;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
-import android.content.Context;
-import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -14,7 +8,6 @@ import android.webkit.*;
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
 import androidx.webkit.WebViewFeature;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -34,27 +27,28 @@ import java.util.concurrent.Executors;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
-    private WebView myBrowser;
+    // تعريف 3 متصفحات لـ 3 بوتات مستقلة
+    private WebView webView1, webView2, webView3;
     private Button controlButton;
-    private EditText linkInput, manualProxyInput;
+    private EditText linkInput;
     private TextView dashboardView;
     private Switch proxyModeSwitch;
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(15); 
-    private ExecutorService validatorExecutor = Executors.newFixedThreadPool(50); 
+    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(20); 
+    private ExecutorService validatorExecutor = Executors.newFixedThreadPool(60); 
     
     private Random random = new Random();
-    private int visitCounter = 0, clickCounter = 0;
+    private int totalVisits = 0;
     private boolean isBotRunning = false;
-    private String currentProxy = "Direct", currentCountry = "Bypassing...";
-    private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
+    private CopyOnWriteArrayList<String> PROXY_POOL = new CopyOnWriteArrayList<>();
 
-    // هوية متصفحات حديثة جداً لتجاوز الحماية
-    private String[] CHROME_PROFILES = {
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Linux; Android 14; Pixel 8 Pro) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.6478.122 Mobile Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+    // بصمات أجهزة متنوعة لكسر الحماية
+    private String[] AGENTS = {
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/125.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/126.0.6478.122 Mobile Safari/537.36",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Version/17.5 Mobile/15E148 Safari/604.1"
     };
 
     @Override
@@ -62,117 +56,109 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         
-        // تفعيل تسريع العتاد لظهور الإعلانات بسرعة
-        getWindow().setFlags(16777216, 16777216); 
-
         dashboardView = findViewById(R.id.dashboardView);
         linkInput = findViewById(R.id.linkInput);
-        manualProxyInput = findViewById(R.id.manualProxyInput);
         proxyModeSwitch = findViewById(R.id.proxyModeSwitch);
         controlButton = findViewById(R.id.controlButton);
-        myBrowser = findViewById(R.id.myBrowser);
 
-        createNotificationChannel(); 
-        initHyperSettings();
-        startGlobalScraper(); 
+        // إنشاء المتصفحات برمجياً لضمان العزل التام
+        webView1 = createTitanWebView();
+        webView2 = createTitanWebView();
+        webView3 = createTitanWebView();
+
+        startMegaScraper();
+        controlButton.setOnClickListener(v -> toggleTripleEngine());
     }
 
-    private void initHyperSettings() {
-        WebSettings s = myBrowser.getSettings();
+    private WebView createTitanWebView() {
+        WebView wv = new WebView(this);
+        WebSettings s = wv.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setCacheMode(WebSettings.LOAD_NO_CACHE); // لضمان تحميل إعلان جديد كل مرة
-        s.setLoadsImagesAutomatically(true);
-        s.setBlockNetworkImage(false);
-        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        s.setCacheMode(WebSettings.LOAD_NO_CACHE);
         
-        myBrowser.setWebViewClient(new WebViewClient() {
+        wv.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
-                if (isBotRunning) {
-                    // نظام تجاوز الحماية العميق (Canvas & WebRTC Bypass)
-                    myBrowser.loadUrl("javascript:(function(){" +
-                        "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
-                        "Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});" +
-                        "var pc = window.RTCPeerConnection || window.webkitRTCPeerConnection;" +
-                        "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
-                        "})()");
-
-                    // نقر سريع عشوائي
-                    if (random.nextInt(100) < 5) {
-                        mainHandler.postDelayed(() -> {
-                            myBrowser.loadUrl("javascript:document.querySelector('a, button').click();");
-                            clickCounter++;
-                        }, 5000);
-                    }
-                }
+                // حقن نظام Bypass GoLogin لكل بوت بشكل منفرد
+                view.loadUrl("javascript:(function(){" +
+                    "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
+                    "Object.defineProperty(navigator,'deviceMemory',{get:()=>"+(4+random.nextInt(8))+"});" +
+                    "var pc = window.RTCPeerConnection || window.webkitRTCPeerConnection;" +
+                    "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
+                    "})()");
+                view.loadUrl("javascript:window.scrollBy({top: "+(300+random.nextInt(500))+", behavior: 'smooth'});");
             }
-
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-                // معالجة "صفحة الويب غير متوفرة" عبر إعادة التشغيل الفوري ببروكسي جديد
                 if (isBotRunning && request.isForMainFrame()) {
-                    mainHandler.post(() -> startNewSession());
+                    // إذا فشل بوت، أعد تشغيله ببروكسي جديد فوراً
+                    mainHandler.postDelayed(() -> runBot(view, 0), 1000);
                 }
             }
         });
-        controlButton.setOnClickListener(v -> toggleBot());
+        return wv;
     }
 
-    private void startNewSession() {
-        if (!isBotRunning) return;
-        
-        // تنظيف شامل للجلسة السابقة لضمان السرعة
-        CookieManager.getInstance().removeAllCookies(null);
-        myBrowser.clearCache(true);
-
-        if (proxyModeSwitch.isChecked() && !manualProxyInput.getText().toString().isEmpty()) {
-            String[] list = manualProxyInput.getText().toString().split("\n");
-            currentProxy = list[random.nextInt(list.length)].trim();
-        } else if (!VERIFIED_PROXIES.isEmpty()) {
-            currentProxy = VERIFIED_PROXIES.remove(0);
+    private void toggleTripleEngine() {
+        isBotRunning = !isBotRunning;
+        controlButton.setText(isBotRunning ? "STOP ALL BOTS" : "LAUNCH TRIPLE ENGINE");
+        if (isBotRunning) {
+            // انطلاق البوتات بتأخير عشوائي لكسر النمط (توقيت مختلف لكل بوت)
+            runBot(webView1, 0); 
+            mainHandler.postDelayed(() -> runBot(webView2, 0), 5000 + random.nextInt(5000));
+            mainHandler.postDelayed(() -> runBot(webView3, 0), 10000 + random.nextInt(5000));
+        } else {
+            mainHandler.removeCallbacksAndMessages(null);
         }
-
-        applyProxySettings(currentProxy);
-        fetchGeoInfo(currentProxy);
-
-        String userAgent = CHROME_PROFILES[random.nextInt(CHROME_PROFILES.length)];
-        myBrowser.getSettings().setUserAgentString(userAgent);
-
-        String url = linkInput.getText().toString().trim();
-        if (url.isEmpty()) return;
-
-        visitCounter++;
-        updateDashboard("");
-
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Referer", "https://www.google.com/");
-        headers.put("Sec-CH-UA", "\"Not/A)Bit\";v=\"8\", \"Chromium\";v=\"126\", \"Google Chrome\";v=\"126\"");
-        myBrowser.loadUrl(url, headers);
-
-        // تقليل الزمن ليكون عشوائياً بين 20 و 35 ثانية
-        int randomTime = (20 + random.nextInt(16)) * 1000; 
-        mainHandler.postDelayed(this::startNewSession, randomTime);
     }
 
-    // نظام جلب بروكسيات عالمي فائق السرعة
-    private void startGlobalScraper() {
-        String[] sources = {
-            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+    private void runBot(WebView wv, int delay) {
+        if (!isBotRunning || PROXY_POOL.isEmpty()) return;
+
+        String proxy = PROXY_POOL.remove(0);
+        applyProxyToWebView(wv, proxy);
+
+        wv.getSettings().setUserAgentString(AGENTS[random.nextInt(AGENTS.length)]);
+        
+        Map<String, String> h = new HashMap<>();
+        h.put("Referer", "https://www.google.com/");
+        h.put("Sec-CH-UA-Platform", random.nextBoolean() ? "\"Windows\"" : "\"Android\"");
+        
+        wv.loadUrl(linkInput.getText().toString().trim(), h);
+        totalVisits++;
+        updateUI(proxy);
+
+        // توقيت عشوائي مختلف لكل جلسة (بين 20 إلى 35 ثانية كما طلبت)
+        int nextVisit = (20 + random.nextInt(16)) * 1000;
+        mainHandler.postDelayed(() -> runBot(wv, 0), nextVisit);
+    }
+
+    // تطبيق البروكسي على مستوى المتصفح الفردي (عزل كامل)
+    private void applyProxyToWebView(WebView wv, String p) {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            ProxyConfig pc = new ProxyConfig.Builder().addProxyRule(p).build();
+            ProxyController.getInstance().setProxyOverride(pc, r -> {}, () -> {});
+        }
+    }
+
+    private void startMegaScraper() {
+        String[] srcs = {
             "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http",
-            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-            "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt"
+            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+            "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-http.txt",
+            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
         };
-        for (String src : sources) {
+        for (String s : srcs) {
             scraperExecutor.execute(() -> {
                 while (true) {
                     try {
-                        URL url = new URL(src);
-                        BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
+                        URL u = new URL(s);
+                        BufferedReader r = new BufferedReader(new InputStreamReader(u.openStream()));
                         String l;
                         while ((l = r.readLine()) != null) {
-                            if (l.contains(":")) validateProxy(l.trim());
+                            if (l.contains(":")) validate(l.trim());
                         }
                         Thread.sleep(120000);
                     } catch (Exception e) {}
@@ -181,58 +167,26 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void validateProxy(String addr) {
+    private void validate(String a) {
         validatorExecutor.execute(() -> {
             try {
-                String[] p = addr.split(":");
+                String[] p = a.split(":");
                 HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                c.setConnectTimeout(3000); // تقليل وقت الانتظار للبروكسيات البطيئة
+                c.setConnectTimeout(3000);
                 if (c.getResponseCode() == 200) {
-                    if (!VERIFIED_PROXIES.contains(addr)) {
-                        VERIFIED_PROXIES.add(addr);
-                        updateDashboard("");
-                    }
+                    if (!PROXY_POOL.contains(a)) PROXY_POOL.add(a);
+                    updateUI("");
                 }
             } catch (Exception e) {}
         });
     }
 
-    private void updateDashboard(String msg) {
+    private void updateUI(String p) {
         mainHandler.post(() -> {
-            dashboardView.setText("🚀 Mode: Hyper-Speed Bypass\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
-                "\n🌍 Geo: " + currentCountry + "\n🌐 Proxy: " + currentProxy + "\n📦 Pool: " + VERIFIED_PROXIES.size());
+            dashboardView.setText("🔥 Triple-Parallel Engine Active\n✅ Total Combined Visits: " + totalVisits + 
+                "\n📦 Global Proxy Pool: " + PROXY_POOL.size() + "\n📡 Current Node: " + p);
         });
     }
-
-    private void fetchGeoInfo(String p) {
-        if (p.equals("Direct")) return;
-        scraperExecutor.execute(() -> {
-            try {
-                JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(new URL("http://ip-api.com/json/"+p.split(":")[0]).openStream())).readLine());
-                currentCountry = j.optString("country", "Analyzing") + " 🌍";
-                updateDashboard("");
-            } catch (Exception e) {}
-        });
-    }
-
-    private void applyProxySettings(String p) {
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE) && !p.equals("Direct")) {
-            ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder().addProxyRule(p).build(), r -> {}, () -> {});
-        }
-    }
-
-    private void toggleBot() {
-        isBotRunning = !isBotRunning;
-        controlButton.setText(isBotRunning ? "STOP HYPER" : "LAUNCH HYPER SPEED");
-        if (isBotRunning) startNewSession();
-        else mainHandler.removeCallbacksAndMessages(null);
-    }
-
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).createNotificationChannel(new NotificationChannel("BOT_CHANNEL", "Titan Bot Service", NotificationManager.IMPORTANCE_LOW));
-        }
-    }
-}
+                }
