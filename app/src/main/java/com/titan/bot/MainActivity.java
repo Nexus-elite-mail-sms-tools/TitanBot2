@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     private Switch proxyModeSwitch;
     
     private Handler mainHandler = new Handler(Looper.getMainLooper());
-    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(4); // تقليل المسارات لتناسب 19Mbps
+    private ExecutorService scraperExecutor = Executors.newFixedThreadPool(4); 
     private ExecutorService validatorExecutor = Executors.newFixedThreadPool(15); 
     
     private Random random = new Random();
@@ -76,32 +76,38 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        s.setDatabaseEnabled(true);
         
         myBrowser.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // ميزة 1: قتل ثغرة WebRTC لمنع كشف الـ IP الحقيقي
+                    // ميزة 1: درع التخفي وحماية WebRTC
                     myBrowser.loadUrl("javascript:(function(){" +
-                        "var pc = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;" +
-                        "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
                         "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
-                        "Object.defineProperty(navigator,'deviceMemory',{get:()=>8});" +
+                        "var pc = window.RTCPeerConnection || window.webkitRTCPeerConnection;" +
+                        "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
+                        "})()");
+
+                    // ميزة 2: كشف رسائل الحظر والتبديل التلقائي
+                    myBrowser.loadUrl("javascript:(function(){" +
+                        "var text = document.body.innerText;" +
+                        "if(text.includes('Anonymous') || text.includes('unusual traffic') || text.includes('Captcha')) {" +
+                        "   window.location.reload();" + // سيقوم النظام بالتبديل تلقائياً في الجلسة التالية
+                        "}" +
                         "})()");
                     
-                    // ميزة 2: النقر المتذبذب (3%-5%) مع محاكاة قراءة بشرية
+                    // ميزة 3: النقر المتذبذب الذكي (3%-5%)
                     if (random.nextInt(100) < (3 + random.nextInt(3))) {
                         mainHandler.postDelayed(() -> {
                             myBrowser.loadUrl("javascript:(function(){" +
-                                "var el = document.querySelectorAll('a, button, iframe');" +
-                                "if(el.length > 0) el[Math.floor(Math.random()*el.length)].click();" +
+                                "var links = document.querySelectorAll('a, button');" +
+                                "if(links.length > 0) links[Math.floor(Math.random()*links.length)].click();" +
                                 "})()");
                             clickCounter++;
-                            updateDashboard("🎯 Pro Click Applied");
-                        }, 12000 + random.nextInt(6000));
+                            updateDashboard("🎯 Anti-Detect Click");
+                        }, 12000 + random.nextInt(8000));
                     }
-                    myBrowser.loadUrl("javascript:window.scrollBy({top: 400, behavior: 'smooth'});");
+                    myBrowser.loadUrl("javascript:window.scrollBy({top: 500, behavior: 'smooth'});");
                 }
             }
         });
@@ -121,30 +127,29 @@ public class MainActivity extends Activity {
                         URL url = new URL(src);
                         BufferedReader r = new BufferedReader(new InputStreamReader(url.openStream()));
                         String l;
-                        while ((l = r.readLine()) != null && VERIFIED_PROXIES.size() < 2000) {
-                            if (l.contains(":")) validateAndFilterProxy(l.trim());
+                        while ((l = r.readLine()) != null && VERIFIED_PROXIES.size() < 2500) {
+                            if (l.contains(":")) validateProxy(l.trim());
                         }
                     } catch (Exception e) {}
                 }
-                try { Thread.sleep(90000); } catch (Exception e) {}
+                try { Thread.sleep(60000); } catch (Exception e) {}
             }
         });
     }
 
-    private void validateAndFilterProxy(String addr) {
+    private void validateProxy(String addr) {
         validatorExecutor.execute(() -> {
             try {
                 String[] p = addr.split(":");
                 HttpURLConnection c = (HttpURLConnection) new URL("http://ip-api.com/json/" + p[0]).openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                c.setConnectTimeout(6000); // زيادة المهلة لتجنب Timed Out
+                c.setConnectTimeout(5000); 
                 if (c.getResponseCode() == 200) {
                     JSONObject j = new JSONObject(new BufferedReader(new InputStreamReader(c.getInputStream())).readLine());
-                    String country = j.optString("countryCode", "");
-                    boolean isProxy = j.optBoolean("proxy", false); // ميزة الفلترة ضد الكشف
-                    
-                    if (!isProxy && (country.matches("US|CA|GB|DE|FR") || random.nextInt(10) < 3)) {
+                    String org = j.optString("org", "").toLowerCase();
+                    // فلترة بروكسيات الشركات المكشوفة (مثل Azure/Microsoft) لضمان الأمان
+                    if (!org.contains("microsoft") && !org.contains("google") && !org.contains("amazon")) {
                         if (!VERIFIED_PROXIES.contains(addr)) {
                             VERIFIED_PROXIES.add(addr);
                             updateDashboard("");
@@ -180,8 +185,16 @@ public class MainActivity extends Activity {
         headers.put("Referer", "https://www.google.com/");
         myBrowser.loadUrl(url, headers);
 
-        // توقيت متذبذب طويل (45-80 ثانية) لضمان تحميل الإعلانات بالكامل
-        mainHandler.postDelayed(this::startNewSession, 45000 + random.nextInt(35000));
+        // توقيت طويل (50-90 ثانية) لتجاوز حماية السلوك
+        mainHandler.postDelayed(this::startNewSession, 50000 + random.nextInt(40000));
+    }
+
+    private void updateDashboard(String msg) {
+        mainHandler.post(() -> {
+            String status = isBotRunning ? "🛡️ Mode: Anti-Captcha Active" : "⚡ Ready";
+            dashboardView.setText(status + "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
+                "\n🌍 Geo: " + currentCountry + "\n🌐 Proxy: " + currentProxy + "\n📦 Pure Pool: " + VERIFIED_PROXIES.size());
+        });
     }
 
     private void fetchGeoInfo(String p) {
@@ -201,18 +214,10 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void updateDashboard(String msg) {
-        mainHandler.post(() -> {
-            String status = isBotRunning ? "🛡️ Stealth: High-Security Mode" : "⚡ Engine: Ready";
-            dashboardView.setText(status + "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
-                "\n🌍 Geo: " + currentCountry + "\n🌐 Proxy: " + currentProxy + "\n📦 Quality Pool: " + VERIFIED_PROXIES.size());
-        });
-    }
-
     private void toggleBot() {
         isBotRunning = !isBotRunning;
         controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN PRO");
-        if (isBotRunning) { startNewSession(); showNotification("TitanBot Stealth Active..."); }
+        if (isBotRunning) { startNewSession(); showNotification("TitanBot Stealth Running..."); }
         else { mainHandler.removeCallbacksAndMessages(null); stopNotification(); }
     }
 
@@ -230,5 +235,4 @@ public class MainActivity extends Activity {
     }
 
     private void stopNotification() { ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1); }
-                                }
-            
+            }
