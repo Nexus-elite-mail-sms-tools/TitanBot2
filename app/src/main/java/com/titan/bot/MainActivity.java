@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
     private String currentProxy = "Direct", currentCountry = "Bypassing...";
     private CopyOnWriteArrayList<String> VERIFIED_PROXIES = new CopyOnWriteArrayList<>();
 
-    // ميزة 1: محرك متصفحات كروم حديثة جداً
+    // محرك متصفحات كروم حديثة مع ميزات GoLogin
     private String[] CHROME_PROFILES = {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Linux; Android 14; SM-S928B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -84,26 +84,26 @@ public class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 if (isBotRunning) {
-                    // ميزة 2: تخفي كروم وقتل ثغرة WebRTC لمنع كشف الـ IP
+                    // دمج ميزات GoLogin للتخفي وقتل WebRTC
                     myBrowser.loadUrl("javascript:(function(){" +
                         "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
+                        "Object.defineProperty(navigator,'deviceMemory',{get:()=>8});" +
                         "var pc = window.RTCPeerConnection || window.webkitRTCPeerConnection;" +
                         "if(pc) pc.prototype.createOffer = function(){ return new Promise(function(res,rej){ rej(); }); };" +
                         "})()");
 
-                    // ميزة 3: النقر المتذبذب الذكي 3-5%
-                    int clickChance = 3 + random.nextInt(3);
-                    if (random.nextInt(100) < clickChance) {
+                    // النقر المتذبذب الذكي 3-5%
+                    if (random.nextInt(100) < (3 + random.nextInt(3))) {
                         mainHandler.postDelayed(() -> {
                             myBrowser.loadUrl("javascript:(function(){" +
                                 "var links = document.querySelectorAll('a, button');" +
                                 "if(links.length > 0) links[Math.floor(Math.random()*links.length)].click();" +
                                 "})()");
                             clickCounter++;
-                            updateDashboard("🎯 Chrome Click: " + clickChance + "%");
-                        }, 10000 + random.nextInt(5000));
+                            updateDashboard("🎯 Pro Click Executed");
+                        }, 8000 + random.nextInt(4000));
                     }
-                    myBrowser.loadUrl("javascript:window.scrollBy({top: 500, behavior: 'smooth'});");
+                    myBrowser.loadUrl("javascript:window.scrollBy({top: 400, behavior: 'smooth'});");
                 }
             }
         });
@@ -124,9 +124,7 @@ public class MainActivity extends Activity {
         applyProxySettings(currentProxy);
         fetchGeoInfo(currentProxy);
 
-        // تطبيق هوية كروم المختارة عشوائياً
         myBrowser.getSettings().setUserAgentString(CHROME_PROFILES[random.nextInt(CHROME_PROFILES.length)]);
-        
         String url = linkInput.getText().toString().trim();
         if (url.isEmpty()) return;
 
@@ -137,12 +135,12 @@ public class MainActivity extends Activity {
         headers.put("Referer", "https://www.google.com/");
         myBrowser.loadUrl(url, headers);
 
-        // ميزة 4: زمن زيارات عشوائي من 20 إلى 80 ثانية [طلب المستخدم]
-        int randomTime = (20 + random.nextInt(61)) * 1000; 
-        mainHandler.postDelayed(this::startNewSession, randomTime);
+        // تعديل الزمن العشوائي الجديد: من 15 إلى 40 ثانية
+        int turboRandomTime = (15 + random.nextInt(26)) * 1000; 
+        mainHandler.postDelayed(this::startNewSession, turboRandomTime);
     }
 
-    // --- الدوال الأساسية المستقرة ---
+    // --- الدوال الأساسية للجمع والعمل في الخلفية ---
     private void startUltraScraper() {
         String[] sources = {"https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt","https://api.proxyscrape.com/v2/?request=getproxies&protocol=http"};
         scraperExecutor.execute(() -> {
@@ -185,7 +183,7 @@ public class MainActivity extends Activity {
 
     private void updateDashboard(String msg) {
         mainHandler.post(() -> {
-            String status = isBotRunning ? "🛡️ Mode: Chrome Ultra Bypass" : "⚡ Ready";
+            String status = isBotRunning ? "🛡️ Mode: Chrome-Stealth Turbo" : "⚡ Ready";
             dashboardView.setText(status + "\n📊 Visits: " + visitCounter + " | Clicks: " + clickCounter + 
                 "\n🌍 Geo: " + currentCountry + "\n🌐 Proxy: " + currentProxy + "\n📦 Pure Pool: " + VERIFIED_PROXIES.size());
         });
@@ -210,8 +208,8 @@ public class MainActivity extends Activity {
 
     private void toggleBot() {
         isBotRunning = !isBotRunning;
-        controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH CHROME PRO");
-        if (isBotRunning) { startNewSession(); showNotification("Chrome Simulation Active..."); }
+        controlButton.setText(isBotRunning ? "STOP TITAN" : "LAUNCH TITAN PRO");
+        if (isBotRunning) { startNewSession(); showNotification("TitanBot Turbo Running..."); }
         else { mainHandler.removeCallbacksAndMessages(null); stopNotification(); }
     }
 
@@ -229,4 +227,4 @@ public class MainActivity extends Activity {
     }
 
     private void stopNotification() { ((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE)).cancel(1); }
-                        }
+            }
