@@ -32,7 +32,6 @@ public class MainActivity extends Activity {
     private TextView dashView, aiStatusView, serverCountView;
     private LinearLayout webContainer;
     
-    // خيوط نفاثة لسرعة البرق
     private Handler mHandler = new Handler(Looper.getMainLooper());
     private ExecutorService scrapExec = Executors.newFixedThreadPool(150); 
     private ExecutorService validExec = Executors.newFixedThreadPool(600); 
@@ -48,6 +47,7 @@ public class MainActivity extends Activity {
         try {
             setContentView(R.layout.activity_main);
             
+            // الربط المباشر مع الواجهة
             dashView = findViewById(R.id.dashboardView);
             aiStatusView = findViewById(R.id.aiStatusView);
             serverCountView = findViewById(R.id.serverCountView);
@@ -55,27 +55,32 @@ public class MainActivity extends Activity {
             controlBtn = findViewById(R.id.controlButton);
             webContainer = findViewById(R.id.webContainer);
 
+            // تفعيل الكوكيز للأرباح
             CookieManager.getInstance().setAcceptCookie(true);
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
-                CookieManager.getInstance().setAcceptThirdPartyCookies(null, true);
-            }
-
+            
+            // بناء البوتات الثلاثة
             web1 = initWeb(); web2 = initWeb(); web3 = initWeb();
             setupTripleLayout();
             
-            // تشغيل محرك الجلب النفاث فوراً
+            // بدء جلب البروكسيات فوراً لملء الـ Pool
             startTurboScraping(); 
             
-            controlBtn.setOnClickListener(v -> toggleZenithV5());
+            // برمجة زر التشغيل للاستجابة الفورية
+            controlBtn.setOnClickListener(v -> {
+                if (linkIn.getText().toString().isEmpty()) {
+                    Toast.makeText(this, "⚠️ Please enter a link first!", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                toggleZenithV5();
+            });
 
         } catch (Exception e) {
-            Toast.makeText(this, "System Reset: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Critical Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     private void setupTripleLayout() {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
-        p.setMargins(2, 2, 2, 2);
         web1.setLayoutParams(p); web2.setLayoutParams(p); web3.setLayoutParams(p);
         webContainer.addView(web1); webContainer.addView(web2); webContainer.addView(web3);
     }
@@ -86,24 +91,10 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        
         wv.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageFinished(WebView v, String url) {
-                // نظام AI Intel المطور للتمويه
-                v.evaluateJavascript("(function(){" +
-                    "Object.defineProperty(navigator,'webdriver',{get:()=>false});" +
-                    "window.scrollTo(0, "+rnd.nextInt(600)+");" +
-                    "setInterval(function(){ window.scrollBy(0, "+(rnd.nextBoolean()?20:-15)+"); }, 3000);" +
-                    "})()", null);
-                mHandler.post(() -> aiStatusView.setText("🤖 AI Intel: High Activity Mode"));
-            }
-
-            @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                if (isRunning && req.isForMainFrame()) {
-                    mHandler.post(() -> runSingleBot(v));
-                }
+                if (isRunning && req.isForMainFrame()) runSingleBot(v);
             }
         });
         return wv;
@@ -112,10 +103,12 @@ public class MainActivity extends Activity {
     private void toggleZenithV5() {
         isRunning = !isRunning;
         controlBtn.setText(isRunning ? "🛑 STOP V5 GHOST" : "🚀 LAUNCH ZENITH V5");
+        aiStatusView.setText(isRunning ? "🤖 AI Intel: System Active..." : "🤖 AI Intel: System Standby");
+        
         if (isRunning) {
             runSingleBot(web1);
-            mHandler.postDelayed(() -> runSingleBot(web2), 1000); // تشغيل نفاث (1 ثانية)
-            mHandler.postDelayed(() -> runSingleBot(web3), 2000); 
+            mHandler.postDelayed(() -> runSingleBot(web2), 1000);
+            mHandler.postDelayed(() -> runSingleBot(web3), 2000);
         }
     }
 
@@ -124,28 +117,14 @@ public class MainActivity extends Activity {
             if (isRunning) mHandler.postDelayed(() -> runSingleBot(wv), 2000);
             return;
         }
-
         String proxy = PROXY_POOL.remove(0);
         updateUI();
-
         if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
-            try {
-                ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder()
-                    .addProxyRule(proxy).build(), r -> {}, () -> {});
-            } catch (Exception e) {}
+            ProxyController.getInstance().setProxyOverride(new ProxyConfig.Builder()
+                .addProxyRule(proxy).build(), r -> {}, () -> {});
         }
-
-        // تدوير هويات كروم وقولوقين
-        String[] agents = {
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-        };
-        wv.getSettings().setUserAgentString(agents[rnd.nextInt(agents.length)]);
-        
         wv.loadUrl(linkIn.getText().toString().trim());
         totalJumps++;
-        
-        // قفزات أسرع (بين 35 و 65 ثانية)
         mHandler.postDelayed(() -> runSingleBot(wv), (35 + rnd.nextInt(30)) * 1000);
     }
 
@@ -158,10 +137,8 @@ public class MainActivity extends Activity {
 
     private void startTurboScraping() {
         String[] sources = {
-            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=500", // جلب فائق السرعة
-            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
-            "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-            "https://proxyspace.pro/http.txt"
+            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=500",
+            "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt"
         };
         for (String url : sources) {
             scrapExec.execute(() -> {
@@ -171,7 +148,7 @@ public class MainActivity extends Activity {
                         BufferedReader r = new BufferedReader(new InputStreamReader(u.openStream()));
                         String l;
                         while ((l = r.readLine()) != null) { if (l.contains(":")) validateProxy(l.trim()); }
-                        Thread.sleep(15000); // تحديث المصادر كل 15 ثانية لضمان الانفجار في الأرقام
+                        Thread.sleep(15000);
                     } catch (Exception e) {}
                 }
             });
@@ -185,15 +162,11 @@ public class MainActivity extends Activity {
                 HttpURLConnection c = (HttpURLConnection) new URL("https://www.google.com").openConnection(
                     new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])))
                 );
-                // السر الحقيقي للسرعة: تقليل مهلة الانتظار لـ 500 ملي ثانية فقط
-                c.setConnectTimeout(500); 
+                c.setConnectTimeout(500);
                 if (c.getResponseCode() == 200) {
-                    if (!PROXY_POOL.contains(a)) {
-                        PROXY_POOL.add(a);
-                        updateUI();
-                    }
+                    if (!PROXY_POOL.contains(a)) { PROXY_POOL.add(a); updateUI(); }
                 }
             } catch (Exception e) {}
         });
     }
-                }
+    }
