@@ -17,4 +17,3 @@ jobs:
         with:
           name: Zenith-V5-Bot
           path: app/build/outputs/apk/debug/app-debug.apk
-          
