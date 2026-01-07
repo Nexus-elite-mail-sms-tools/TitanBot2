@@ -42,15 +42,14 @@ public class MainActivity extends Activity {
     private LinearLayout webContainer;
     
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    // زيادة عدد الخيوط للتعامل مع الكم الهائل من المصادر
     private ExecutorService scrapExec = Executors.newFixedThreadPool(50); 
-    private ExecutorService validExec = Executors.newFixedThreadPool(800); // 800 خيط للفحص السريع
+    private ExecutorService validExec = Executors.newFixedThreadPool(500); 
     
     private Random rnd = new Random();
     private int totalJumps = 0;
     private boolean isRunning = false;
     
-    // استخدام Set لمنع التكرار بشكل أسرع
+    // ذاكرة لتجنب تكرار الفحص
     private Set<String> CHECKED_HISTORY = Collections.synchronizedSet(new HashSet<>());
     private CopyOnWriteArrayList<String> BLACKLIST = new CopyOnWriteArrayList<>();
     private CopyOnWriteArrayList<String> PROXY_POOL = new CopyOnWriteArrayList<>();
@@ -68,7 +67,7 @@ public class MainActivity extends Activity {
             mHandler.postDelayed(() -> {
                 try {
                     PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::Nuclear");
+                    wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::15sMode");
 
                     dashView = findViewById(R.id.dashboardView);
                     aiStatusView = findViewById(R.id.aiStatusView);
@@ -83,9 +82,19 @@ public class MainActivity extends Activity {
                     if (webContainer != null) {
                         web1 = initWeb(1); web2 = initWeb(2); web3 = initWeb(3);
                         setupTripleLayout();
-                        startNuclearScraping(); // تشغيل المصادر الجديدة
+                        startNuclearScraping(); 
                         controlBtn.setOnClickListener(v -> toggleEngine());
-                        aiStatusView.setText("☢️ Nuclear Core: Harvesting 20+ Sources...");
+                        aiStatusView.setText("⏱️ Timeout Set: 15 Seconds Logic");
+                        
+                        // إعادة تدوير الخوادم كل 3 دقائق لضمان عدم توقف التجميع
+                        mHandler.postDelayed(new Runnable() {
+                            @Override
+                            public void run() {
+                                CHECKED_HISTORY.clear();
+                                aiStatusView.setText("♻️ Refreshing Sources...");
+                                mHandler.postDelayed(this, 180000); // كل 3 دقائق
+                            }
+                        }, 180000);
                     }
                 } catch (Exception e) {}
             }, 1000); 
@@ -113,7 +122,7 @@ public class MainActivity extends Activity {
         if (!badProxy.isEmpty() && !BLACKLIST.contains(badProxy)) {
             BLACKLIST.add(badProxy);
             PROXY_POOL.remove(badProxy);
-            aiStatusView.setText("⚡ Kill Switch: " + badProxy + " [" + reason + "]");
+            aiStatusView.setText("⏱️ Timeout/Block: " + badProxy);
             updateUI();
         }
         WebView wv = (id == 1) ? web1 : (id == 2) ? web2 : web3;
@@ -132,24 +141,29 @@ public class MainActivity extends Activity {
         wv.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
-                Runnable timeoutTask = () -> handleBadProxy(id, "Timeout");
+                // هنا التعديل الذي طلبته: 15 ثانية بالضبط
+                Runnable timeoutTask = () -> handleBadProxy(id, "Timeout 15s");
                 if (id == 1) timeoutRunnable1 = timeoutTask;
                 else if (id == 2) timeoutRunnable2 = timeoutTask;
                 else timeoutRunnable3 = timeoutTask;
-                mHandler.postDelayed(timeoutTask, 20000);
+                
+                mHandler.postDelayed(timeoutTask, 15000); // 15000 ميلي ثانية = 15 ثانية
             }
+
             @Override
             public void onPageFinished(WebView v, String url) {
+                // إلغاء المؤقت إذا نجح التحميل قبل 15 ثانية
                 if (id == 1) mHandler.removeCallbacks(timeoutRunnable1);
                 else if (id == 2) mHandler.removeCallbacks(timeoutRunnable2);
                 else mHandler.removeCallbacks(timeoutRunnable3);
                 
                 v.evaluateJavascript(
-                    "javascript:(function() { var text = document.body.innerText; if(text.includes('Anonymous Proxy') || text.includes('Access Denied')) { window.TitanGuard.reportBadProxy('Blocked Content'); } })()", null);
+                    "javascript:(function() { var text = document.body.innerText; if(text.includes('Anonymous Proxy') || text.includes('Access Denied')) { window.TitanGuard.reportBadProxy('Content Block'); } })()", null);
             }
+
             @Override
             public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                if (isRunning && req.isForMainFrame()) handleBadProxy(id, "Net Error: " + err.getErrorCode());
+                if (isRunning && req.isForMainFrame()) handleBadProxy(id, "NetErr");
             }
         });
         return wv;
@@ -157,7 +171,7 @@ public class MainActivity extends Activity {
 
     private void toggleEngine() {
         isRunning = !isRunning;
-        controlBtn.setText(isRunning ? "🛑 STOP NUCLEAR" : "🚀 START NUCLEAR");
+        controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 START 15s ENGINE");
         if (isRunning) {
             if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire();
             runSingleBot(web1, 1);
@@ -177,7 +191,7 @@ public class MainActivity extends Activity {
         }
         
         String proxy;
-        try { proxy = PROXY_POOL.get(rnd.nextInt(Math.min(PROXY_POOL.size(), 20))); } 
+        try { proxy = PROXY_POOL.get(rnd.nextInt(Math.min(PROXY_POOL.size(), 50))); } 
         catch (Exception e) { proxy = PROXY_POOL.get(0); }
 
         if (id == 1) currentProxy1 = proxy;
@@ -201,27 +215,28 @@ public class MainActivity extends Activity {
         if(url.isEmpty()) url = "https://www.google.com";
         Map<String, String> headers = new HashMap<>();
         headers.put("Referer", "https://www.google.com/");
+        
         wv.loadUrl(url, headers);
         totalJumps++;
-        mHandler.postDelayed(() -> runSingleBot(wv, id), 40000);
+        
+        // وقت البقاء في الصفحة 30 ثانية
+        mHandler.postDelayed(() -> runSingleBot(wv, id), 30000);
     }
 
     private void updateUI() {
         mHandler.post(() -> {
-            serverCountView.setText("🚀 FAST: " + PROXY_POOL.size() + " | ☠️ Banned: " + BLACKLIST.size());
+            serverCountView.setText("🔋 Pool: " + PROXY_POOL.size() + " | ☠️ Banned: " + BLACKLIST.size());
             dashView.setText("💰 Visits: " + totalJumps);
         });
     }
 
-    // --- القائمة النووية للمصادر ---
     private void startNuclearScraping() {
         String[] sources = {
-            // المصادر الضخمة (APIs & GitHub)
-            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=3000&country=all&ssl=all&anonymity=all",
+            "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
             "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
             "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
             "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-            "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt", // يحتوي على http أيضاً
+            "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
             "https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt",
             "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt",
             "https://raw.githubusercontent.com/prxchk/proxy-list/main/http.txt",
@@ -246,46 +261,39 @@ public class MainActivity extends Activity {
                     try {
                         URL u = new URL(url);
                         HttpURLConnection conn = (HttpURLConnection) u.openConnection();
-                        conn.setConnectTimeout(10000);
+                        conn.setConnectTimeout(15000);
                         BufferedReader r = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                         String l;
                         while ((l = r.readLine()) != null) { 
                             String clean = l.trim();
-                            // التحقق مما إذا كنا قد فحصنا هذا البروكسي سابقاً لتوفير الموارد
                             if (clean.contains(":") && !CHECKED_HISTORY.contains(clean)) { 
                                 CHECKED_HISTORY.add(clean);
-                                validateFastProxy(clean); 
+                                validate10sProxy(clean); 
                             }
                         }
                         r.close();
-                        Thread.sleep(60000); // تكرار كل دقيقة لجلب التحديثات
+                        Thread.sleep(60000); 
                     } catch (Exception e) {}
                 }
             });
         }
     }
 
-    private void validateFastProxy(String a) {
+    private void validate10sProxy(String a) {
         validExec.execute(() -> {
             if (BLACKLIST.contains(a)) return;
             try {
                 String[] p = a.split(":");
                 Proxy proxy = new Proxy(Proxy.Type.HTTP, new InetSocketAddress(p[0], Integer.parseInt(p[1])));
                 
-                // استخدام رابط خفيف جداً للفحص الأولي
                 URL testUrl = new URL("http://www.gstatic.com/generate_204");
-                long startTime = System.currentTimeMillis();
                 
                 HttpURLConnection c = (HttpURLConnection) testUrl.openConnection(proxy);
-                c.setConnectTimeout(3000); 
-                c.setReadTimeout(3000);
+                c.setConnectTimeout(10000); // 10 ثواني للاتصال فقط (للتجميع)
+                c.setReadTimeout(10000);
                 c.connect();
                 
-                int code = c.getResponseCode();
-                long time = System.currentTimeMillis() - startTime;
-
-                // نقبل البروكسي إذا كان سريعاً (أقل من 3 ثواني)
-                if ((code == 204 || code == 200) && time < 3000) {
+                if (c.getResponseCode() == 204 || c.getResponseCode() == 200) {
                     if (!PROXY_POOL.contains(a)) {
                         PROXY_POOL.add(a);
                         updateUI();
@@ -295,4 +303,4 @@ public class MainActivity extends Activity {
             } catch (Exception e) {}
         });
     }
-                }
+    }
