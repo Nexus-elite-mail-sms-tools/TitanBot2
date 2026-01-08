@@ -55,11 +55,7 @@ public class MainActivity extends Activity {
         try {
             setContentView(R.layout.activity_main);
             
-            // الحماية من توقف المعالج
-            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::FixCrash");
-
-            // ربط العناصر
+            // 1. ربط العناصر (الخطوة الأولى دائماً)
             dashView = findViewById(R.id.dashboardView);
             aiStatusView = findViewById(R.id.aiStatusView);
             serverCountView = findViewById(R.id.serverCountView);
@@ -67,127 +63,143 @@ public class MainActivity extends Activity {
             controlBtn = findViewById(R.id.controlButton);
             webContainer = findViewById(R.id.webContainer);
 
-            // التحقق من وجود الحاوية (لمنع الانهيار عند البدء)
+            // 2. تفعيل الزر فوراً (لحل مشكلة عدم الاستجابة)
+            // نضعه خارج أي شرط لضمان عمله
+            if (controlBtn != null) {
+                controlBtn.setOnClickListener(v -> toggleSystem());
+            }
+
+            // 3. محاولة تشغيل النظام (داخل حماية لمنع الانهيار)
+            initializeSystemSafely();
+
+        } catch (Exception e) {
+            Toast.makeText(this, "Critical UI Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void initializeSystemSafely() {
+        try {
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::Armored");
+
             if (webContainer != null) {
-                // تفعيل الكوكيز للذكاء الاصطناعي
                 CookieManager.getInstance().setAcceptCookie(true);
                 CookieManager.getInstance().setAcceptThirdPartyCookies(null, true);
                 
-                // تهيئة المتصفحات بأمان
-                web1 = initSafeWeb(); 
-                web2 = initSafeWeb(); 
-                web3 = initSafeWeb();
+                // إنشاء المتصفحات واحداً تلو الآخر (إذا فشل واحد يعمل الآخر)
+                web1 = createSafeWebView(); 
+                web2 = createSafeWebView(); 
+                web3 = createSafeWebView();
                 
-                setupTripleLayout(); // إضافة المتصفحات للشاشة
-                startMegaScraping(); // تشغيل الوحش
+                setupTripleLayout();
+                startMegaScraping(); 
                 
-                controlBtn.setOnClickListener(v -> toggleSystem());
-                aiStatusView.setText("🛡️ SYSTEM READY: NO CRASH");
-            } else {
-                Toast.makeText(this, "Error: webContainer Not Found!", Toast.LENGTH_LONG).show();
+                aiStatusView.setText("🛡️ SYSTEM ARMORED: READY");
             }
-
         } catch (Exception e) {
-            Toast.makeText(this, "Startup Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            aiStatusView.setText("⚠️ Init Warning: " + e.getMessage());
+        }
+    }
+
+    // دالة إنشاء آمنة جداً (تمنع الخطأ الذي ظهر في الصورة)
+    private WebView createSafeWebView() {
+        try {
+            WebView wv = new WebView(this);
+            // إعدادات الأمان والعزل (Isolation & Stealth)
+            WebSettings s = wv.getSettings();
+            s.setJavaScriptEnabled(true);
+            s.setDomStorageEnabled(true);
+            s.setDatabaseEnabled(true);
+            s.setAllowFileAccess(false); // عزل الملفات
+            s.setGeolocationEnabled(false);
+            s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            s.setLoadsImagesAutomatically(true);
+            
+            wv.setWebViewClient(new WebViewClient() {
+                Runnable timeoutRunnable = () -> {
+                    if (wv != null) {
+                        mHandler.post(() -> aiStatusView.setText("⏳ Timeout -> Resetting..."));
+                        wv.stopLoading();
+                        handleFailure(wv, "Timeout");
+                    }
+                };
+
+                @Override
+                public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                    mHandler.removeCallbacks(timeoutRunnable);
+                    mHandler.postDelayed(timeoutRunnable, 30000); 
+                }
+
+                @Override
+                public void onPageFinished(WebView v, String url) {
+                    mHandler.removeCallbacks(timeoutRunnable);
+                    if (url.equals("about:blank")) return;
+
+                    // تفعيل ميزات التخفي (Titanium Features)
+                    injectStealthScripts(v);
+
+                    // استراتيجية الكوكيز الذكية (Google Warm-up)
+                    if (url.contains("google.com") || url.contains("bing.com")) {
+                        injectFakeHistory(v); 
+                        mHandler.postDelayed(() -> {
+                             String targetUrl = "";
+                             if(linkIn != null) targetUrl = linkIn.getText().toString().trim();
+                             if(targetUrl.isEmpty()) targetUrl = "https://www.google.com";
+                             
+                             // إزالة بصمة التطبيق
+                             Map<String, String> headers = new HashMap<>();
+                             headers.put("X-Requested-With", ""); 
+                             headers.put("Referer", "https://www.google.com/");
+                             
+                             if (v != null) v.loadUrl(targetUrl, headers);
+                             mHandler.post(() -> aiStatusView.setText("🚀 Moved to Target"));
+                        }, 4000); 
+                    } else {
+                        checkBanStatus(v, url);
+                    }
+                }
+
+                @Override
+                public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
+                    if (req.isForMainFrame()) {
+                        mHandler.removeCallbacks(timeoutRunnable);
+                        v.loadUrl("about:blank");
+                        handleFailure(v, "Conn Error");
+                    }
+                }
+                
+                @Override
+                public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+                    handler.proceed();
+                }
+            });
+            return wv;
+        } catch (Exception e) {
+            // في حال فشل إنشاء المتصفح، نعيد null ولا نغلق التطبيق
+            return null;
         }
     }
 
     private void setupTripleLayout() {
         if (webContainer == null) return;
-        // إضافة المتصفحات فقط إذا تم إنشاؤها بنجاح
         if (web1 != null) addWebToLayout(web1);
         if (web2 != null) addWebToLayout(web2);
         if (web3 != null) addWebToLayout(web3);
     }
 
     private void addWebToLayout(WebView wv) {
+        if(wv == null) return;
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
         wv.setLayoutParams(p);
         webContainer.addView(wv);
     }
 
-    // === المتصفح الآمن (Safe Web) ===
-    private WebView initSafeWeb() {
-        WebView wv = new WebView(this);
-        WebSettings s = wv.getSettings();
-        
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setAllowFileAccess(false); // عزل تام
-        s.setGeolocationEnabled(false);
-        s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setLoadsImagesAutomatically(true);
-
-        wv.setWebViewClient(new WebViewClient() {
-            // مؤقت 35 ثانية
-            Runnable timeoutRunnable = () -> {
-                if (wv != null) {
-                    mHandler.post(() -> aiStatusView.setText("⏳ Timeout -> Resetting..."));
-                    wv.stopLoading();
-                    handleFailure(wv, "Timeout");
-                }
-            };
-
-            @Override
-            public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                mHandler.removeCallbacks(timeoutRunnable);
-                mHandler.postDelayed(timeoutRunnable, 35000); 
-            }
-
-            @Override
-            public void onPageFinished(WebView v, String url) {
-                mHandler.removeCallbacks(timeoutRunnable);
-                if (url.equals("about:blank")) return;
-
-                // حقن كود التخفي (WebGL Spoofing)
-                injectStealthScripts(v);
-
-                // منطق الإحماء (Google Warm-up)
-                if (url.contains("google.com") || url.contains("bing.com")) {
-                    injectFakeHistory(v); 
-                    mHandler.postDelayed(() -> {
-                         String targetUrl = linkIn.getText().toString().trim();
-                         if(targetUrl.isEmpty()) targetUrl = "https://www.google.com";
-                         
-                         // الانتقال للهدف مع إخفاء الهيدر
-                         Map<String, String> headers = new HashMap<>();
-                         headers.put("X-Requested-With", ""); 
-                         headers.put("Referer", "https://www.google.com/");
-                         
-                         if (v != null) v.loadUrl(targetUrl, headers);
-                         
-                         mHandler.post(() -> aiStatusView.setText("🚀 Moved to Target"));
-                    }, 4000); 
-                } else {
-                    checkBanStatus(v, url);
-                }
-            }
-
-            @Override
-            public void onReceivedError(WebView v, WebResourceRequest req, WebResourceError err) {
-                if (req.isForMainFrame()) {
-                    mHandler.removeCallbacks(timeoutRunnable);
-                    v.loadUrl("about:blank"); // إخفاء الخطأ فوراً
-                    handleFailure(v, "Conn Error");
-                }
-            }
-            
-            @Override
-            public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                handler.proceed();
-            }
-        });
-        return wv;
-    }
-
-    // === حقن البيانات (Smart Cookies) ===
+    // === دوال الحقن والذكاء (حافظنا عليها كما طلبت) ===
     private void injectFakeHistory(WebView v) {
         String js = "(function() { try { localStorage.setItem('user_consent', 'true'); document.cookie = 'CONSENT=YES+US.en+202201; path=/; domain=.google.com'; } catch(e) {} })();";
         v.evaluateJavascript(js, null);
     }
 
-    // === حقن التخفي (Titanium Stealth) ===
     private void injectStealthScripts(WebView v) {
         String js = 
             "(function() {" +
@@ -228,13 +240,11 @@ public class MainActivity extends Activity {
     }
 
     private void handleFailure(WebView v, String reason) {
-        if (v == null) return; // حماية
+        if (v == null) return;
         mHandler.post(() -> aiStatusView.setText("⛔ " + reason + " -> Skipping..."));
-        
         v.stopLoading();
         v.loadUrl("about:blank");
-        
-        mHandler.postDelayed(() -> runSingleBot(v), 1500);
+        mHandler.postDelayed(() -> runSingleBot(v), 1000);
     }
 
     private void simulateHumanBehavior(WebView v) {
@@ -249,23 +259,28 @@ public class MainActivity extends Activity {
 
     private void toggleSystem() {
         isRunning = !isRunning;
-        controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 LAUNCH ZENITH V5");
+        if (controlBtn != null) controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 LAUNCH ZENITH V5");
         
         if (isRunning) {
             if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire();
-            // تشغيل تدريجي آمن
+            // تشغيل فقط المتصفحات التي نجحت في التحميل
             if (web1 != null) runSingleBot(web1);
-            if (web2 != null) mHandler.postDelayed(() -> runSingleBot(web2), 2500);
-            if (web3 != null) mHandler.postDelayed(() -> runSingleBot(web3), 5000);
+            if (web2 != null) mHandler.postDelayed(() -> runSingleBot(web2), 2000);
+            if (web3 != null) mHandler.postDelayed(() -> runSingleBot(web3), 4000);
+            
+            // إذا فشل الجميع، نعطي تنبيهاً
+            if (web1 == null && web2 == null && web3 == null) {
+                Toast.makeText(this, "Error: Your device blocked WebViews!", Toast.LENGTH_LONG).show();
+                isRunning = false;
+                controlBtn.setText("🚀 TRY AGAIN");
+            }
         } else {
             if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         }
     }
 
-    // === المحرك الرئيسي (هنا كان الخطأ وتم إصلاحه) ===
     private void runSingleBot(WebView wv) {
-        // 🔥 الحماية القصوى: إصلاح الخطأ الظاهر في الصورة
-        // إذا كان المتصفح غير موجود (null)، توقف فوراً ولا تكمل
+        // حماية قصوى: إذا كان المتصفح غير موجود، لا تفعل شيئاً
         if (wv == null) return;
         
         wv.setTag(0);
@@ -276,7 +291,7 @@ public class MainActivity extends Activity {
         }
 
         try {
-            // تنظيف البيانات
+            // بروتوكول التنظيف
             CookieManager.getInstance().removeAllCookies(null);
             WebStorage.getInstance().deleteAllData();
             wv.clearCache(true);
@@ -297,19 +312,18 @@ public class MainActivity extends Activity {
                 "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15"
             };
             
-            // حماية إضافية عند استدعاء getSettings
+            // حماية إضافية ضد الخطأ القديم
             if (wv.getSettings() != null) {
                 wv.getSettings().setUserAgentString(agents[rnd.nextInt(agents.length)]);
             }
             
-            // البدء بجوجل (Smart Cookies Strategy)
+            // البدء بمرحلة الإحماء
             wv.loadUrl("https://www.google.com"); 
             
             totalJumps++;
-            mHandler.postDelayed(() -> runSingleBot(wv), (40 + rnd.nextInt(20)) * 1000);
+            mHandler.postDelayed(() -> runSingleBot(wv), (30 + rnd.nextInt(20)) * 1000);
 
         } catch (Exception e) {
-            // منع الانهيار وإعادة المحاولة
             mHandler.postDelayed(() -> runSingleBot(wv), 2000);
         }
     }
@@ -326,7 +340,11 @@ public class MainActivity extends Activity {
             "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=2000&country=all",
             "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
             "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
-            "https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/http/http.txt"
+            "https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/http/http.txt",
+            "https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
+            "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+            "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
+            "https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/proxies.txt"
         };
 
         for (String url : sources) {
@@ -375,6 +393,9 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        isRunning = false;
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
+        scrapExec.shutdownNow();
+        validExec.shutdownNow();
     }
                     }
