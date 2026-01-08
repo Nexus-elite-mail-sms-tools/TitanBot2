@@ -60,14 +60,36 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal"
-        android:background="#000000"/>
+        android:orientation="vertical"
+        android:background="#000000">
+
+        <WebView
+            android:id="@+id/webview_1"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="5dp"/>
+
+        <WebView
+            android:id="@+id/webview_2"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="5dp"/>
+
+        <WebView
+            android:id="@+id/webview_3"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+            
+    </LinearLayout>
 
     <Button
         android:id="@+id/controlButton"
         android:layout_width="match_parent"
         android:layout_height="60dp"
-        android:text="🚀 LAUNCH V8"
+        android:text="🚀 LAUNCH V12 HARDWARE"
         android:textSize="18sp"
         android:textStyle="bold"
         android:backgroundTint="#8A2BE2"
