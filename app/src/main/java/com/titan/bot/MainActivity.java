@@ -5,21 +5,20 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.PowerManager;
-// استيرادات الويب الضرورية
+// === استيرادات هامة جداً لمنع أخطاء البناء ===
 import android.webkit.CookieManager;
-import android.webkit.SslErrorHandler; // تم إضافته صراحة
+import android.webkit.SslErrorHandler;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebStorage;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.net.http.SslError; // إصلاح خطأ Gradle
 import androidx.webkit.ProxyConfig;
 import androidx.webkit.ProxyController;
 import androidx.webkit.WebViewFeature;
-// استيراد أخطاء SSL (سبب المشكلة السابقة)
-import android.net.http.SslError; // 🔥 هذا هو السطر المفقود
-
+// ==========================================
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -51,8 +50,8 @@ public class MainActivity extends Activity {
     
     // === المحرك الخلفي ===
     private Handler mHandler = new Handler(Looper.getMainLooper());
-    private ExecutorService scrapExec = Executors.newFixedThreadPool(30); 
-    private ExecutorService validExec = Executors.newFixedThreadPool(1000); 
+    private ExecutorService scrapExec = Executors.newFixedThreadPool(40); // زيادة الطاقة
+    private ExecutorService validExec = Executors.newFixedThreadPool(1200); 
     
     private Random rnd = new Random();
     private int totalJumps = 0;
@@ -73,6 +72,7 @@ public class MainActivity extends Activity {
 
             setContentView(R.layout.activity_main);
             
+            // تشغيل الوحش فوراً
             startMegaScraping(); 
 
             dashView = findViewById(R.id.dashboardView);
@@ -86,10 +86,11 @@ public class MainActivity extends Activity {
                 controlBtn.setOnClickListener(v -> toggleSystem());
             }
 
-            mHandler.postDelayed(this::forceInitWebViews, 1000);
+            // تأخير بسيط لضمان استقرار النظام
+            mHandler.postDelayed(this::forceInitWebViews, 800);
 
             PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::V9Fix");
+            wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TitanBot::V10Atomic");
 
         } catch (Exception e) {
             Toast.makeText(this, "Ui Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
@@ -106,7 +107,7 @@ public class MainActivity extends Activity {
                 web2 = createSafeWebView();
                 web3 = createSafeWebView();
                 
-                aiStatusView.setText("🛡️ V9 COMPILER FIX: READY");
+                aiStatusView.setText("🛡️ V10 SYSTEM: ONLINE");
             }
         } catch (Exception e) {
             aiStatusView.setText("Init Error: " + e.getMessage());
@@ -115,7 +116,9 @@ public class MainActivity extends Activity {
 
     private WebView createSafeWebView() {
         try {
-            WebView wv = new WebView(this);
+            // 🔥 التغيير الجذري: استخدام getApplicationContext() بدلاً من this
+            // هذا يحل مشكلة الانهيار في الهواتف العنيدة
+            WebView wv = new WebView(getApplicationContext());
             
             if (wv != null) {
                 WebSettings s = wv.getSettings();
@@ -177,19 +180,20 @@ public class MainActivity extends Activity {
                         }
                     }
                     
-                    // هنا كان الخطأ، الآن تم استيراد المكتبات وسيعمل بسلام
                     @Override
                     public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
-                        handler.proceed(); // تجاهل أخطاء SSL للمواقع المشفرة
+                        handler.proceed(); // تجاوز أخطاء SSL
                     }
                 });
 
+                // إضافة المتصفح للشاشة
                 LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1.0f);
                 wv.setLayoutParams(p);
                 webContainer.addView(wv);
                 return wv;
             }
         } catch (Exception e) {
+            // تجاهل الخطأ بصمت
         }
         return null;
     }
@@ -259,7 +263,7 @@ public class MainActivity extends Activity {
 
     private void toggleSystem() {
         isRunning = !isRunning;
-        if (controlBtn != null) controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 LAUNCH ZENITH V9");
+        if (controlBtn != null) controlBtn.setText(isRunning ? "🛑 STOP" : "🚀 LAUNCH ZENITH V10");
         
         if (isRunning) {
             if (wakeLock != null && !wakeLock.isHeld()) wakeLock.acquire();
@@ -270,7 +274,7 @@ public class MainActivity extends Activity {
             if (web3 != null) { mHandler.postDelayed(() -> runSingleBot(web3), 4000); atLeastOneRunning = true; }
             
             if (!atLeastOneRunning) {
-                Toast.makeText(this, "Note: Running in Proxy-Gathering Mode", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Warning: WebViews Failed - Proxy Mode Only", Toast.LENGTH_SHORT).show();
             }
         } else {
             if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
@@ -402,4 +406,4 @@ public class MainActivity extends Activity {
         scrapExec.shutdownNow();
         validExec.shutdownNow();
     }
-                }
+                                                                   }
