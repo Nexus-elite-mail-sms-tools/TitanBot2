@@ -4,25 +4,28 @@ plugins {
 
 android {
     namespace 'com.titan.bot'
-    compileSdk 34
+    compileSdk 34 // هذا ما يطلبه الكود الحديث
 
     defaultConfig {
         applicationId "com.titan.bot"
-        minSdk 21
+        minSdk 24 // ضروري جداً لمكتبات الويب الحديثة
         targetSdk 34
-        versionCode 5
-        versionName "5.0-Turbo"
+        versionCode 1
+        versionName "1.0"
     }
-
+    
+    // حل مشكلة توافق Java
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
     }
 }
 
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'com.google.android.material:material:1.9.0'
-    // المكتبة التي تجعل الأزرار والبروكسي تعمل فعلياً
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    
+    // 🔥🔥 هذه هي المكتبة المفقودة التي تسبب فشل البناء 🔥🔥
     implementation 'androidx.webkit:webkit:1.10.0'
 }
