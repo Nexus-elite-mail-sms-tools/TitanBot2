@@ -4,68 +4,70 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#121212"
-    android:padding="16dp">
+    android:padding="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         android:background="#1E1E1E"
-        android:padding="10dp"
-        android:layout_marginBottom="10dp">
+        android:padding="8dp"
+        android:gravity="center_vertical">
         
         <TextView
             android:id="@+id/aiStatusView"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
+            android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:text="🤖 System Ready"
+            android:text="🤖 Ready"
             android:textColor="#00FF00"
-            android:textStyle="bold"
-            android:gravity="center"/>
+            android:textSize="12sp"
+            android:textStyle="bold"/>
             
         <TextView
             android:id="@+id/dashboardView"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="💰 Hits: 0"
             android:textColor="#FFD700"
-            android:gravity="center"
-            android:textSize="18sp"
-            android:layout_marginTop="5dp"/>
+            android:textSize="16sp"
+            android:textStyle="bold"/>
     </LinearLayout>
 
     <EditText
         android:id="@+id/proxyInputBox"
         android:layout_width="match_parent"
-        android:layout_height="100dp"
+        android:layout_height="80dp"
         android:background="#2C2C2C"
         android:textColor="#FFFFFF"
-        android:hint="Paste your Webshare List here (IP:Port)..."
+        android:hint="Paste Proxies Here (IP:Port)..."
         android:textColorHint="#888888"
         android:gravity="top|start"
-        android:padding="8dp"
-        android:textSize="12sp"
+        android:padding="5dp"
+        android:textSize="10sp"
         android:inputType="textMultiLine"
-        android:layout_marginBottom="10dp"/>
+        android:layout_marginTop="5dp"/>
 
     <EditText
         android:id="@+id/linkInput"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Put your target link here"
+        android:layout_height="40dp"
+        android:hint="Target Link"
         android:textColor="#FFFFFF"
         android:textColorHint="#AAAAAA"
         android:background="#333333"
-        android:padding="12dp"
-        android:layout_marginBottom="10dp"/>
+        android:padding="5dp"
+        android:textSize="12sp"
+        android:layout_marginTop="5dp"/>
 
     <Button
         android:id="@+id/controlButton"
         android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:text="🚀 START V23"
-        android:textSize="18sp"
+        android:layout_height="50dp"
+        android:text="🚀 START MONITOR V24"
+        android:textSize="16sp"
         android:backgroundTint="#6200EE"
+        android:layout_marginTop="5dp"
         android:textStyle="bold"/>
 
     <LinearLayout
@@ -75,9 +77,28 @@
         android:orientation="vertical"
         android:layout_marginTop="10dp">
         
-        <WebView android:id="@+id/webview_1" android:layout_width="match_parent" android:layout_height="1dp"/>
-        <WebView android:id="@+id/webview_2" android:layout_width="match_parent" android:layout_height="1dp"/>
-        <WebView android:id="@+id/webview_3" android:layout_width="match_parent" android:layout_height="1dp"/>
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" text="Worker 1" android:textColor="#555"/>
+        <WebView 
+            android:id="@+id/webview_1" 
+            android:layout_width="match_parent" 
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="5dp"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" text="Worker 2" android:textColor="#555"/>
+        <WebView 
+            android:id="@+id/webview_2" 
+            android:layout_width="match_parent" 
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_marginBottom="5dp"/>
+
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" text="Worker 3" android:textColor="#555"/>
+        <WebView 
+            android:id="@+id/webview_3" 
+            android:layout_width="match_parent" 
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
     </LinearLayout>
 
 </LinearLayout>
